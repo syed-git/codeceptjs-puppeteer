@@ -1,0 +1,13 @@
+{
+  "baseUrl": "https://personal-auto-policy-center.onrender.com/",
+  "users": {
+    "accountExecutive": {
+      "username": "aexec",
+      "password": "gw123"
+    },
+    "underwriter": {
+      "username": "uwriter",
+      "password": "gw123"
+    }
+  }
+}
