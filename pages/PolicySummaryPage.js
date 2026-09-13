@@ -1,44 +1,39 @@
 import BasePage from './BasePage.js';
+import { policySummaryPage } from '../selectors/index.js';
 import { GlobalData } from '../support/GlobalData.js';
 import { log } from '../support/logger.js';
 
+/** Wizard step 8 - summary shown right after issuing; records policy number + status. */
 export default class PolicySummaryPage extends BasePage {
   static pageName = 'Policy Summary';
 
-  summaryHero = '//div[contains(@class,"summary-hero")]';
-  statusHeading = '//div[contains(@class,"summary-hero")]/h2';
-  policyNumber = '//div[contains(@class,"summary-policy-num")]';
-  keyValue = (key) => `//div[contains(@class,"kv")][span[contains(@class,"kv-key")][starts-with(normalize-space(), "${key}")]]/span[contains(@class,"kv-val")]`;
-  viewPolicyButton = this.button('View Policy');
-
   get pageHeading() {
-    return this.summaryHero;
+    return policySummaryPage.pageHeading;
   }
 
   async fillOutPage() {
     await this.waitForPage();
     const policyNumber = await this.grabPolicyNumber();
+    const status = await this.grabStatus();
     GlobalData.setPolicyNumber(policyNumber);
-    GlobalData.setValue('policy.status', await this.grabStatus());
-    log.info(`policy number ${policyNumber} - ${await this.grabStatus()}`);
+    GlobalData.setValue('policy.status', status);
+    log.info(`policy number ${policyNumber} - ${status}`);
   }
 
   async clickOnNext() {
-    await this.click(this.viewPolicyButton);
-    await this.waitFor('//h3[contains(normalize-space(), "Transaction History")]');
-    GlobalData.setCurrentPage('View Policy');
+    await this.clickAndExpectNextPage(policySummaryPage.viewPolicyButton, policySummaryPage.nextHeading, 'View Policy');
   }
 
   async grabPolicyNumber() {
-    return this.grabText(this.policyNumber);
+    return this.ui.grabTextFrom(policySummaryPage.policyNumber);
   }
 
   /** "Policy In Force" -> "In Force" */
   async grabStatus() {
-    return (await this.grabText(this.statusHeading)).replace(/^Policy\s+/, '');
+    return (await this.ui.grabTextFrom(policySummaryPage.statusHeading)).replace(/^Policy\s+/, '');
   }
 
   async grabValueFor(key) {
-    return this.grabText(this.keyValue(key));
+    return this.ui.grabTextFrom(policySummaryPage.keyValue(key));
   }
 }

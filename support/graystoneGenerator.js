@@ -6,7 +6,18 @@ import { COVERAGES, GENDER_OPTIONS, OWNERSHIP_OPTIONS, RELATIONSHIP_OPTIONS, USA
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/** Reference data set listing every supported key (see data/autoGraystoneTemplate.json). */
 export const TEMPLATE = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../data/autoGraystoneTemplate.json'), 'utf8'));
+
+/**
+ * Keys that are only filled in the UI when the test data provides them. Missing optional
+ * keys are NOT generated - the page simply leaves the field untouched.
+ */
+export const OPTIONAL_INSURED_FIELDS = ['email', 'phone', 'address', 'city', 'state', 'zip'];
+export const OPTIONAL_DRIVER_FIELDS = ['licenseState', 'yearsLicensed', 'accidents', 'violations', 'relationshipToInsured', 'licenseFile'];
+export const OPTIONAL_VEHICLE_FIELDS = ['usage', 'annualMileage', 'costNew', 'primaryDriver'];
+export const OPTIONAL_COVERAGES = Object.keys(COVERAGES).filter((key) => !COVERAGES[key].required);
+export const REQUIRED_COVERAGES = Object.keys(COVERAGES).filter((key) => COVERAGES[key].required);
 
 /* ------------------------------------------------------------------ */
 /* Random primitives                                                    */
@@ -72,45 +83,33 @@ export const random = {
 };
 
 /* ------------------------------------------------------------------ */
-/* Entity generators                                                    */
+/* Entity generators - only the fields PolicyCenter requires            */
 /* ------------------------------------------------------------------ */
 
+/** Required insured fields. `isPrimaryInsured` is true for NamedInsured1 only. */
 export function randomInsured(index = 1) {
-  const firstName = random.firstName();
-  const lastName = random.lastName();
-  const [city, state] = random.cityState();
   return {
-    firstName,
-    lastName,
+    firstName: random.firstName(),
+    lastName: random.lastName(),
     dateOfBirth: random.dateOfBirth(),
     gender: random.gender(),
-    email: random.email(firstName, lastName),
-    phone: random.phone(),
-    address: random.address(),
-    city,
-    state,
-    zip: random.zip(),
     isPrimaryInsured: index === 1 ? 'true' : 'false',
   };
 }
 
-/** Clean driving record by default so no underwriting issue is raised unless the test asks for one. */
-export function randomDriver(index = 1) {
+/** Required driver fields (10-digit license). Optional record fields are not generated. */
+export function randomDriver() {
   return {
     firstName: random.firstName(),
     lastName: random.lastName(),
     dateOfBirth: random.dateOfBirth(),
     gender: random.gender(),
     licenseNumber: random.licenseNumber(),
-    licenseState: random.licenseState(),
-    yearsLicensed: String(random.int(1, 30)),
-    accidents: String(random.int(0, 1)),
-    violations: String(random.int(0, 1)),
-    relationshipToInsured: index === 1 ? 'Insured' : random.relationship(),
   };
 }
 
-export function randomVehicle(index = 1, numberOfDrivers = 1) {
+/** Required vehicle fields (VIN + 12 chars). usage / mileage / cost / primary driver are not generated. */
+export function randomVehicle() {
   const [make, model] = random.makeModel();
   return {
     year: random.year(),
@@ -118,19 +117,12 @@ export function randomVehicle(index = 1, numberOfDrivers = 1) {
     model,
     vin: random.vin(),
     ownership: random.ownership(),
-    usage: random.usage(),
-    annualMileage: String(random.int(3000, 25000)),
-    costNew: String(random.int(15000, 80000)),
-    primaryDriver: String(Math.min(index, numberOfDrivers)),
   };
 }
 
+/** Limits for the coverages PolicyCenter always includes (liability). Optional coverages are not generated. */
 export function randomCoverages() {
-  return Object.fromEntries(Object.keys(COVERAGES).map((key) => [key, random.coverageLimit(key)]));
-}
-
-export function defaultCancellation() {
-  return { ...TEMPLATE.Cancellation };
+  return Object.fromEntries(REQUIRED_COVERAGES.map((key) => [key, random.coverageLimit(key)]));
 }
 
 /* ------------------------------------------------------------------ */
@@ -149,11 +141,11 @@ export function fillMissing(base, overrides = {}) {
   return result;
 }
 
+/** Count key wins, then the number of supplied entries, else 1. */
 function resolveCount(input, countKey, groupKey, prefix) {
-  const provided = Object.keys(input[groupKey] || {}).filter((k) => k.startsWith(prefix)).length;
   if (input[countKey] !== undefined && input[countKey] !== '') return Math.max(Number(input[countKey]), 0);
-  if (provided > 0) return provided;
-  return Number(TEMPLATE[countKey]);
+  const provided = Object.keys(input[groupKey] || {}).filter((k) => k.startsWith(prefix)).length;
+  return provided > 0 ? provided : 1;
 }
 
 function expandGroup(input, groupKey, prefix, count, generate) {
@@ -167,13 +159,17 @@ function expandGroup(input, groupKey, prefix, count, generate) {
 }
 
 /**
- * Returns a complete AutoGraystone data set: every key from data/autoGraystoneTemplate.json
- * is present, values supplied in `input` win, everything else is random but valid for
- * PolicyCenter (10-digit licenses, VIN + 12 chars, clean driving records, adult DOBs...).
+ * Builds a complete-enough AutoGraystone data set from a partial input:
+ *
+ *   - values supplied in `input` always win
+ *   - required fields that are missing get random-but-valid values (names, DOB, gender,
+ *     10-digit license, VIN, year/make/model/ownership, liability coverages)
+ *   - optional fields (OPTIONAL_*_FIELDS / OPTIONAL_COVERAGES) are NOT added when missing
+ *   - `isPrimaryInsured` is true for NamedInsured1 and false for every other insured
+ *   - without input: 1 insured, 1 driver, 1 vehicle, effective today
  *
  * `numberOfInsured` / `numberOfDrivers` / `numberOfVehicles` control how many entries the
- * Insured / Drivers / Vehicles groups get (defaults: the count of supplied entries, else the
- * template's value).
+ * Insured / Drivers / Vehicles groups get (default: number of supplied entries, else 1).
  */
 export function generateAutoGraystoneData(input = {}) {
   if (!isObject(input)) throw new Error('getAutoGraystoneData expects a JSON object');
@@ -184,18 +180,18 @@ export function generateAutoGraystoneData(input = {}) {
 
   const data = {
     ...input,
-    effectiveDate: input.effectiveDate ?? random.effectiveDate(),
+    effectiveDate: input.effectiveDate || random.effectiveDate(),
     numberOfInsured: String(numberOfInsured),
     numberOfDrivers: String(numberOfDrivers),
     numberOfVehicles: String(numberOfVehicles),
     Insured: expandGroup(input, 'Insured', 'NamedInsured', numberOfInsured, randomInsured),
     Drivers: expandGroup(input, 'Drivers', 'Driver', numberOfDrivers, randomDriver),
-    Vehicles: expandGroup(input, 'Vehicles', 'Vehicle', numberOfVehicles, (i) => randomVehicle(i, numberOfDrivers)),
+    Vehicles: expandGroup(input, 'Vehicles', 'Vehicle', numberOfVehicles, randomVehicle),
     Coverages: fillMissing(randomCoverages(), input.Coverages),
-    Cancellation: fillMissing(defaultCancellation(), input.Cancellation),
   };
+  if (input.Cancellation) data.Cancellation = { ...input.Cancellation };
 
-  ensureSinglePrimaryInsured(data, numberOfInsured);
+  enforcePrimaryInsured(data.Insured);
   ensureUniqueNames(data.Insured, 'NamedInsured', numberOfInsured, input.Insured);
   ensureUniqueNames(data.Drivers, 'Driver', numberOfDrivers, input.Drivers);
   return data;
@@ -220,12 +216,10 @@ function ensureUniqueNames(group, prefix, count, provided = {}) {
   }
 }
 
-function ensureSinglePrimaryInsured(data, count) {
-  const keys = Array.from({ length: count }, (_, i) => `NamedInsured${i + 1}`);
-  const primaries = keys.filter((k) => /^(true|yes|1)$/i.test(String(data.Insured[k]?.isPrimaryInsured)));
-  if (primaries.length === 1) return;
-  keys.forEach((k, i) => {
-    const keepAsPrimary = primaries.length === 0 ? i === 0 : k === primaries[0];
-    data.Insured[k].isPrimaryInsured = keepAsPrimary ? 'true' : 'false';
-  });
+/** NamedInsured1 is the primary insured; every other insured is not. */
+function enforcePrimaryInsured(insured) {
+  for (const [key, person] of Object.entries(insured)) {
+    if (!isObject(person)) continue;
+    person.isPrimaryInsured = key === 'NamedInsured1' ? 'true' : 'false';
+  }
 }

@@ -1,4 +1,5 @@
 import BasePage from './BasePage.js';
+import { cancelPolicyPage } from '../selectors/index.js';
 import { GlobalData } from '../support/GlobalData.js';
 import { log } from '../support/logger.js';
 import { matchOption } from '../support/normalizers.js';
@@ -12,17 +13,8 @@ export const CANCELLATION_TYPES = ['Flat', 'Pro-rata'];
 export default class CancelPolicyPage extends BasePage {
   static pageName = 'Cancel Policy';
 
-  modal = '//div[contains(@class,"modal")]';
-  cancellationTypeRadio = (type) => `//label[contains(@class,"radio")][.//strong[starts-with(normalize-space(), "${type}")]]//input`;
-  effectiveDateInput = this.fieldInput('Cancellation Effective Date');
-  reasonInput = this.fieldTextarea('Reason');
-  estimatedRefund = '//span[contains(@class,"field-hint")][contains(., "Estimated refund")]';
-  keepPolicyButton = this.button('Keep Policy');
-  confirmCancellationButton = this.button('Confirm Cancellation');
-  reinstateButton = this.button('Reinstate');
-
   get pageHeading() {
-    return '//h2[starts-with(normalize-space(), "Cancel Policy")]';
+    return cancelPolicyPage.pageHeading;
   }
 
   async fillOutPage(data = {}) {
@@ -31,39 +23,37 @@ export default class CancelPolicyPage extends BasePage {
     const type = matchOption(cancellation.type, CANCELLATION_TYPES, { fallback: 'Flat' });
     await this.selectCancellationType(type);
     if (type === 'Pro-rata' && cancellation.effectiveDate) {
-      await this.fillDate(this.effectiveDateInput, cancellation.effectiveDate);
+      await this.ui.fillDateField(cancelPolicyPage.effectiveDateInput, cancellation.effectiveDate);
     }
-    await this.fill(this.reasonInput, cancellation.reason || 'Insured request — sold vehicle');
+    await this.ui.fillField(cancelPolicyPage.reasonInput, cancellation.reason || 'Insured request');
     log.info(`${type} cancellation prepared`);
   }
 
   async clickOnNext() {
-    await this.click(this.confirmCancellationButton);
+    await this.ui.click(cancelPolicyPage.confirmCancellationButton);
     const error = await this.grabModalError();
     if (error) throw new Error(`[${this.pageName}] ${error}`);
-    await this.waitFor(this.reinstateButton);
+    await this.ui.waitForElement(cancelPolicyPage.reinstateButton);
     GlobalData.setValue('policy.status', 'Canceled');
-    GlobalData.setCurrentPage('View Policy');
     log.info('policy cancelled');
   }
 
   async selectCancellationType(type) {
-    await this.click(this.cancellationTypeRadio(type));
+    await this.ui.click(cancelPolicyPage.cancellationTypeRadio(type));
   }
 
   async grabEstimatedRefund() {
-    const text = await this.grabText(this.estimatedRefund);
+    const text = await this.ui.grabTextFrom(cancelPolicyPage.estimatedRefund);
     return text.replace(/^Estimated refund:\s*/, '');
   }
 
   async keepPolicy() {
-    await this.click(this.keepPolicyButton);
-    await this.waitForHidden(this.modal);
+    await this.ui.click(cancelPolicyPage.keepPolicyButton);
+    await this.ui.waitForElementHidden(cancelPolicyPage.modal);
   }
 
   async grabModalError() {
-    const locator = `${this.modal}//span[contains(@class,"field-error")]`;
-    if (!(await this.isVisible(locator, 500))) return '';
-    return this.grabText(locator);
+    if (!(await this.ui.isElementVisible(cancelPolicyPage.modalError, 500))) return '';
+    return this.ui.grabTextFrom(cancelPolicyPage.modalError);
   }
 }

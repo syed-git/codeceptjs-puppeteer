@@ -1,37 +1,14 @@
 import BasePage from './BasePage.js';
-import { GlobalData } from '../support/GlobalData.js';
+import { policyInfoPage } from '../selectors/index.js';
 import { log } from '../support/logger.js';
 import { isTruthy, matchOption, GENDER_OPTIONS } from '../support/normalizers.js';
 
+/** Wizard step 1 - effective date and named insureds (data.Insured.NamedInsured<n>). */
 export default class PolicyInfoPage extends BasePage {
   static pageName = 'Policy Info';
 
-  effectiveDateInput = this.fieldInput('Effective Date');
-  expirationDateInput = this.fieldInput('Expiration Date');
-  addInsuredButton = this.button('Add Insured');
-  insuredCards = '//div[contains(@class,"person-card")]';
-  insuredCard = (fullName) => `//div[contains(@class,"person-card")][.//strong[contains(normalize-space(), "${fullName}")]]`;
-  editButton = (fullName) => `${this.insuredCard(fullName)}//button[not(contains(@class,"danger"))][not(contains(., "Make Primary"))]`;
-  removeButton = (fullName) => `${this.insuredCard(fullName)}//button[contains(@class,"danger")]`;
-  makePrimaryButton = (fullName) => `${this.insuredCard(fullName)}//button[contains(., "Make Primary")]`;
-
-  firstNameInput = this.fieldInput('First Name');
-  lastNameInput = this.fieldInput('Last Name');
-  dateOfBirthInput = this.fieldInput('Date of Birth');
-  genderRadio = (gender) => this.radio(gender);
-  emailInput = this.fieldInput('Email');
-  phoneInput = this.fieldInput('Phone');
-  addressInput = this.fieldInput('Address');
-  cityInput = this.fieldInput('City');
-  stateInput = this.fieldInput('State');
-  zipInput = this.fieldInput('ZIP');
-  primaryInsuredCheckbox = this.radio('This person is the primary insured');
-  saveInsuredButton = this.button('Save Insured Details');
-  cancelInsuredButton = this.button('Cancel');
-  nextButton = this.button('Next');
-
   get pageHeading() {
-    return this.stepHeading('Policy Information');
+    return policyInfoPage.pageHeading;
   }
 
   async fillOutPage(data, ctx = {}) {
@@ -48,74 +25,67 @@ export default class PolicyInfoPage extends BasePage {
   }
 
   async clickOnNext() {
-    await this.click(this.nextButton);
-    const error = await this.grabStepError();
-    if (error) throw new Error(`[${this.pageName}] ${error}`);
-    await this.waitFor(this.stepHeading('Drivers'));
-    GlobalData.setCurrentPage('Drivers');
+    await this.clickAndExpectNextPage(policyInfoPage.nextButton, policyInfoPage.nextHeading, 'Drivers');
   }
 
   async setEffectiveDate(date) {
-    await this.fillDate(this.effectiveDateInput, date);
+    await this.ui.fillDateField(policyInfoPage.effectiveDateInput, date);
     log.info(`effective date set to ${date}`);
   }
 
   async grabExpirationDate() {
-    return this.grabValue(this.expirationDateInput);
+    return this.ui.grabValueFrom(policyInfoPage.expirationDateInput);
   }
 
   /** Adds the insured unless a card with the same name already exists (policy change re-runs). */
   async addInsured(insured) {
     const fullName = `${insured.firstName} ${insured.lastName}`;
-    if (await this.isVisible(this.insuredCard(fullName), 500)) {
+    if (await this.ui.isElementVisible(policyInfoPage.insuredCard(fullName), 500)) {
       log.info(`insured '${fullName}' already on the policy, skipping`);
       return;
     }
-    await this.click(this.addInsuredButton);
+    await this.ui.click(policyInfoPage.addInsuredButton);
     await this.fillInsuredForm(insured);
-    await this.click(this.saveInsuredButton);
-    await this.waitFor(this.insuredCard(fullName));
+    await this.ui.click(policyInfoPage.saveInsuredButton);
+    await this.verify.validateElementPresent(policyInfoPage.insuredCard(fullName), `insured '${fullName}' was not saved`);
     log.info(`insured '${fullName}' added`);
   }
 
   async editInsured(fullName, changes) {
-    await this.click(this.editButton(fullName));
+    await this.ui.click(policyInfoPage.editButton(fullName));
     await this.fillInsuredForm(changes);
-    await this.click(this.saveInsuredButton);
+    await this.ui.click(policyInfoPage.saveInsuredButton);
   }
 
   async removeInsured(fullName) {
-    await this.click(this.removeButton(fullName));
-    await this.waitForHidden(this.insuredCard(fullName));
+    await this.ui.click(policyInfoPage.removeButton(fullName));
+    await this.ui.waitForElementHidden(policyInfoPage.insuredCard(fullName));
     log.info(`insured '${fullName}' removed`);
   }
 
   async makePrimary(fullName) {
-    await this.click(this.makePrimaryButton(fullName));
+    await this.ui.click(policyInfoPage.makePrimaryButton(fullName));
   }
 
-  /** Fills only the keys that are present in `insured`. */
+  /** Fills only the keys that are present in `insured` (optional fields stay untouched). */
   async fillInsuredForm(insured) {
-    if (insured.firstName !== undefined) await this.fill(this.firstNameInput, insured.firstName);
-    if (insured.lastName !== undefined) await this.fill(this.lastNameInput, insured.lastName);
-    if (insured.dateOfBirth !== undefined) await this.fillDate(this.dateOfBirthInput, insured.dateOfBirth);
-    if (insured.gender !== undefined) await this.click(this.genderRadio(matchOption(insured.gender, GENDER_OPTIONS)));
-    if (insured.email !== undefined) await this.fill(this.emailInput, insured.email);
-    if (insured.phone !== undefined) await this.fill(this.phoneInput, insured.phone);
-    if (insured.address !== undefined) await this.fill(this.addressInput, insured.address);
-    if (insured.city !== undefined) await this.fill(this.cityInput, insured.city);
-    if (insured.state !== undefined) await this.fill(this.stateInput, insured.state);
-    if (insured.zip !== undefined) await this.fill(this.zipInput, insured.zip);
+    const s = policyInfoPage;
+    if (insured.firstName !== undefined) await this.ui.fillField(s.firstNameInput, insured.firstName);
+    if (insured.lastName !== undefined) await this.ui.fillField(s.lastNameInput, insured.lastName);
+    if (insured.dateOfBirth !== undefined) await this.ui.fillDateField(s.dateOfBirthInput, insured.dateOfBirth);
+    if (insured.gender !== undefined) await this.ui.selectRadio(s.genderRadio(matchOption(insured.gender, GENDER_OPTIONS)));
+    if (insured.email !== undefined) await this.ui.fillField(s.emailInput, insured.email);
+    if (insured.phone !== undefined) await this.ui.fillField(s.phoneInput, insured.phone);
+    if (insured.address !== undefined) await this.ui.fillField(s.addressInput, insured.address);
+    if (insured.city !== undefined) await this.ui.fillField(s.cityInput, insured.city);
+    if (insured.state !== undefined) await this.ui.fillField(s.stateInput, insured.state);
+    if (insured.zip !== undefined) await this.ui.fillField(s.zipInput, insured.zip);
     if (insured.isPrimaryInsured !== undefined) {
-      await this.setChecked(this.primaryInsuredCheckbox, isTruthy(insured.isPrimaryInsured));
+      await this.ui.setCheckbox(s.primaryInsuredCheckbox, isTruthy(insured.isPrimaryInsured));
     }
   }
 
   async grabInsuredCount() {
-    return this.count(this.insuredCards);
-  }
-
-  async grabFieldError(label) {
-    return this.grabText(this.fieldError(label));
+    return this.ui.grabElementCount(policyInfoPage.insuredCards);
   }
 }

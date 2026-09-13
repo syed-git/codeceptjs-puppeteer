@@ -1,32 +1,23 @@
 import BasePage from './BasePage.js';
-import { GlobalData } from '../support/GlobalData.js';
+import { riskAnalysisPage } from '../selectors/index.js';
 import { log } from '../support/logger.js';
 
+/**
+ * Wizard step 6 - underwriting issues.
+ *   Account executive: fillOutPage() submits for approval when blocking issues exist.
+ *   Underwriter:       approveAllIssues() / rejectSubmission().
+ * Nobody is logged in/out here - the test orchestrates the role switch (see README).
+ */
 export default class RiskAnalysisPage extends BasePage {
   static pageName = 'Risk Analysis';
 
-  noIssuesMessage = '//h3[normalize-space()="No underwriting issues"]';
-  issueCards = '//div[contains(@class,"issue-card")]';
-  blockingIssues = '//div[contains(@class,"issue-card")][contains(@class,"blocking")]';
-  issueTitle = (title) => `//div[contains(@class,"issue-card")][.//strong[contains(normalize-space(), "${title}")]]`;
-  blockingTag = '//span[contains(@class,"blocking-tag")]';
-  submitForApprovalButton = this.button('Submit for Approval');
-  submittedBanner = '//div[contains(@class,"banner-info")][contains(., "Submitted for approval")]';
-  approvedBanner = '//div[contains(@class,"banner-success")][contains(., "Approved by")]';
-  rejectedBanner = '//div[contains(@class,"banner-danger")][contains(., "Rejected by")]';
-  approveIssueButton = (title) => `${this.issueTitle(title)}//button[normalize-space()="Approve"]`;
-  approveAllButton = '//div[contains(@class,"form-actions")]//button[normalize-space()="Approve"]';
-  rejectButton = '//div[contains(@class,"form-actions")]//button[normalize-space()="Reject"]';
-  nextButton = this.button('Next');
+  get pageHeading() {
+    return riskAnalysisPage.pageHeading;
+  }
 
-  /**
-   * Account Executive: submits for approval when blocking underwriting issues exist.
-   * Underwriter: approves every pending issue.
-   */
   async fillOutPage(data, ctx = {}) {
     await this.waitForPage();
-    const hasBlocking = await this.hasBlockingIssues();
-    if (!hasBlocking) {
+    if (!(await this.hasBlockingIssues())) {
       log.info('no blocking underwriting issues');
       return;
     }
@@ -34,62 +25,66 @@ export default class RiskAnalysisPage extends BasePage {
       await this.approveAllIssues();
       return;
     }
-    if (await this.isVisible(this.submitForApprovalButton, 1000)) {
+    if (await this.ui.isElementVisible(riskAnalysisPage.submitForApprovalButton, 1000)) {
       await this.submitForApproval();
     } else {
-      log.info('underwriting issues already submitted for approval');
+      log.info('underwriting issues already submitted for approval - waiting for the underwriter');
     }
   }
 
   async clickOnNext() {
-    await this.click(this.nextButton);
-    const error = await this.grabStepError();
-    if (error) throw new Error(`[${this.pageName}] ${error}`);
-    await this.waitFor(this.stepHeading('Review'));
-    GlobalData.setCurrentPage('Review');
+    await this.clickAndExpectNextPage(riskAnalysisPage.nextButton, riskAnalysisPage.nextHeading, 'Review');
   }
 
   /** True while blocking issues exist that an underwriter still has to approve. */
-  async needsUnderwriterApproval() {
-    return this.hasBlockingIssues();
-  }
-
   async hasBlockingIssues() {
-    return this.isVisible(this.blockingTag, 1500);
+    return this.ui.isElementVisible(riskAnalysisPage.blockingTag, 1500);
   }
 
   async hasUnderwritingIssues() {
-    return this.isVisible(this.issueCards, 1500);
+    return this.ui.isElementVisible(riskAnalysisPage.issueCards, 1500);
+  }
+
+  async isSubmittedForApproval() {
+    return this.ui.isElementVisible(riskAnalysisPage.submittedBanner, 500);
+  }
+
+  async isApproved() {
+    return this.ui.isElementVisible(riskAnalysisPage.approvedBanner, 500);
   }
 
   async grabIssueCount() {
-    return this.count(this.issueCards);
+    return this.ui.grabElementCount(riskAnalysisPage.issueCards);
   }
 
   async grabIssueTitles() {
-    const cards = await this.findAll(`${this.issueCards}//strong`);
-    return Promise.all(cards.map((c) => c.evaluate((el) => el.innerText.trim())));
+    return this.ui.grabTextsFrom(riskAnalysisPage.issueTitles);
   }
 
   async submitForApproval() {
-    await this.click(this.submitForApprovalButton);
-    await this.waitFor(this.submittedBanner);
+    await this.ui.click(riskAnalysisPage.submitForApprovalButton);
+    await this.verify.validateElementPresent(riskAnalysisPage.submittedBanner, 'submission was not sent for approval');
     log.info('submission sent for underwriter approval');
   }
 
+  /** Underwriter: approves every pending issue in one go. */
   async approveAllIssues() {
-    await this.click(this.approveAllButton);
-    await this.waitForHidden(this.blockingTag);
+    if (!(await this.hasBlockingIssues())) {
+      log.info('nothing to approve - no blocking underwriting issues');
+      return;
+    }
+    await this.ui.click(riskAnalysisPage.approveAllButton);
+    await this.ui.waitForElementHidden(riskAnalysisPage.blockingTag);
     log.info('all underwriting issues approved');
   }
 
   async approveIssue(title) {
-    await this.click(this.approveIssueButton(title));
+    await this.ui.click(riskAnalysisPage.approveIssueButton(title));
   }
 
   async rejectSubmission() {
-    await this.click(this.rejectButton);
-    await this.waitFor(this.rejectedBanner);
+    await this.ui.click(riskAnalysisPage.rejectButton);
+    await this.verify.validateElementPresent(riskAnalysisPage.rejectedBanner, 'submission was not rejected');
     log.info('submission rejected');
   }
 }

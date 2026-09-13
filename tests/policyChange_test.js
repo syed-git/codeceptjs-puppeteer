@@ -25,6 +25,7 @@ Scenario('Add a driver and a vehicle to an in-force policy @smoke @regression', 
 
   const viewPolicy = await I.usePage('View Policy');
   assert.strictEqual(await I.grabPolicyNumber(), policyNumber, 'policy change keeps the policy number');
+  assert.strictEqual(await I.grabTransactionNumber(), policyNumber, 'policy number is the transaction number of a policy change');
   assert.strictEqual(await I.grabPolicyStatus(), 'In Force');
   assert.strictEqual(await viewPolicy.grabSectionCount('Drivers'), 2);
   assert.strictEqual(await viewPolicy.grabSectionCount('Vehicles'), 2);
@@ -38,7 +39,7 @@ Scenario('Change coverages only, using the navigator to skip untouched pages @re
   const quotedPremium = await I.grabGraystoneValue('quote.totalPremium');
 
   await I.createFlow('Policy Change', { policyNumber });
-  await I.clickNextTo('Coverages'); // Policy Info, Drivers, Vehicles already hold the policy data
+  await I.navigateToPage('Coverages'); // clicks Next only: Policy Info, Drivers, Vehicles already hold the policy data
 
   const coverages = await I.usePage('Coverages');
   await coverages.setCoverage('collision', '$100 ded');

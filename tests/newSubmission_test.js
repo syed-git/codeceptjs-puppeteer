@@ -8,12 +8,16 @@ Before(({ I }) => {
 });
 
 Scenario('Issue a personal auto policy end to end @smoke @regression', async ({ I }) => {
-  await I.getAutoGraystoneData({ numberOfInsured: '1', numberOfDrivers: '1', numberOfVehicles: '1' });
+  // no input -> 1 insured, 1 driver, 1 vehicle, effective today; optional fields are left empty
+  const data = await I.getAutoGraystoneData();
+  assert.strictEqual(data.numberOfDrivers, '1');
+  assert.strictEqual(data.Insured.NamedInsured1.email, undefined, 'optional fields are not generated');
 
   await I.executeFlow('New Submission');
 
   const policyNumber = await I.grabPolicyNumber();
   assert.match(policyNumber, /^PA-\d+/, 'policy number should be generated');
+  assert.strictEqual(await I.grabTransactionNumber(), policyNumber, 'submission number is stored for the flow');
   assert.strictEqual(await I.grabPolicyStatus(), 'In Force');
 });
 
@@ -22,8 +26,8 @@ Scenario('Issue a policy with two insureds, two drivers and two vehicles @regres
     numberOfInsured: '2',
     numberOfDrivers: '2',
     numberOfVehicles: '2',
-    Insured: { NamedInsured1: { firstName: 'Joe', lastName: 'Biden' } },
-    Drivers: { Driver1: { firstName: 'John', lastName: 'Wick' } },
+    Insured: { NamedInsured1: { firstName: 'Joe', lastName: 'Biden', email: 'joe.biden@example.com' } },
+    Drivers: { Driver1: { firstName: 'John', lastName: 'Wick', relationshipToInsured: 'Insured' } },
     Vehicles: { Vehicle1: { make: 'Toyota', model: 'Camry', primaryDriver: '1' }, Vehicle2: { primaryDriver: '2' } },
     Coverages: { collision: '250', comprehensive: '250', roadSideAssitance: 'true' },
   });
@@ -70,7 +74,21 @@ Scenario('Backdated effective date is routed to the underwriter and approved @re
   const riskAnalysis = await I.usePage('Risk Analysis');
   assert.strictEqual(await riskAnalysis.hasBlockingIssues(), true, 'a backdated policy should raise a blocking UW issue');
 
-  await I.finishFlow(); // submits for approval, approves as underwriter, issues as account executive
+  await I.fillOutPage(); // Risk Analysis: submits the blocking issues for underwriter approval
+  assert.strictEqual(await riskAnalysis.isSubmittedForApproval(), true);
+  const submissionNumber = await I.grabTransactionNumber();
+  assert.match(submissionNumber, /^PA-\d+/, 'submission number should be known after quoting');
+
+  await I.logout();
+  await I.loginAs('underwriter');
+  const opened = await I.openTransaction(); // reopens the submission stored for the New Submission flow
+  assert.strictEqual(opened, submissionNumber, 'openTransaction returns the submission number');
+  await I.approveAllIssues();
+  assert.strictEqual(await riskAnalysis.hasBlockingIssues(), false);
+
+  await I.logout();
+  await I.loginAs('accountExecutive');
+  await I.finishFlow(); // reopens the submission, continues from Risk Analysis and issues the policy
 
   assert.strictEqual(await I.grabPolicyStatus(), 'In Force');
 });
@@ -83,7 +101,7 @@ Scenario('High-risk driver cannot be issued without approval @regression @underw
     Drivers: { Driver1: { accidents: '3', violations: '2' } },
   });
 
-  await I.createFlow('New Submission', { autoApproveUnderwritingIssues: false });
+  await I.createFlow('New Submission');
   await I.navigateTo('Risk Analysis');
 
   const riskAnalysis = await I.usePage('Risk Analysis');

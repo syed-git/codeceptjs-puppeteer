@@ -1,34 +1,28 @@
 {
+  "_comment": "Reference AutoGraystone data set. Every key is shown; the ones under _optional are only filled when you provide them (they are never generated). Without input the flows use 1 insured, 1 driver, 1 vehicle and today's effective date.",
+  "_optional": {
+    "Insured": ["email", "phone", "address", "city", "state", "zip"],
+    "Drivers": ["licenseState", "yearsLicensed", "accidents", "violations", "relationshipToInsured", "licenseFile"],
+    "Vehicles": ["usage", "annualMileage", "costNew", "primaryDriver"],
+    "Coverages": ["uninsuredMotorist", "medicalPayments", "comprehensive", "collision", "rentalReimbursement", "roadSideAssitance"]
+  },
   "effectiveDate": "09-20-2026",
-  "numberOfInsured": "2",
-  "numberOfDrivers": "2",
-  "numberOfVehicles": "2",
+  "numberOfInsured": "1",
+  "numberOfDrivers": "1",
+  "numberOfVehicles": "1",
   "Insured": {
     "NamedInsured1": {
       "firstName": "Joe",
       "lastName": "Biden",
       "dateOfBirth": "09-01-1989",
       "gender": "Male",
-      "email": "sjsj@gmail.com",
-      "phone": "53638",
-      "address": "Ppainin 227",
+      "isPrimaryInsured": "true",
+      "email": "joe.biden@example.com",
+      "phone": "2125550123",
+      "address": "227 Park Ave",
       "city": "New York",
-      "state": "Florida",
-      "zip": 56443,
-      "isPrimaryInsured": "true"
-    },
-    "NamedInsured2": {
-      "firstName": "William",
-      "lastName": "James",
-      "dateOfBirth": "09-01-1979",
-      "gender": "Female",
-      "email": "ehjbd@gmail.com",
-      "phone": "3738",
-      "address": "ahbdjabsd 227",
-      "city": "New York",
-      "state": "Florida",
-      "zip": 56443,
-      "isPrimaryInsured": "false"
+      "state": "NY",
+      "zip": "10017"
     }
   },
   "Drivers": {
@@ -36,24 +30,12 @@
       "firstName": "John",
       "lastName": "Wick",
       "dateOfBirth": "09-01-1979",
-      "gender": "Female",
-      "licenseNumber": "74947974",
-      "licenseState": "asdkh",
-      "yearsLicensed": "5",
-      "accidents": "9",
-      "violations": "6",
-      "relationshipToInsured": "Insured"
-    },
-    "Driver2": {
-      "firstName": "Jack",
-      "lastName": "Sparrow",
-      "dateOfBirth": "09-01-1979",
-      "gender": "Female",
-      "licenseNumber": "74947974",
-      "licenseState": "asdkh",
-      "yearsLicensed": "5",
-      "accidents": "9",
-      "violations": "6",
+      "gender": "Male",
+      "licenseNumber": "7494797412",
+      "licenseState": "NY",
+      "yearsLicensed": "15",
+      "accidents": "0",
+      "violations": "0",
       "relationshipToInsured": "Insured"
     }
   },
@@ -61,39 +43,28 @@
     "Vehicle1": {
       "year": "2020",
       "make": "Toyota",
-      "model": "ehgd",
+      "model": "Camry",
       "vin": "VIN376683HJGDJSH",
-      "ownership": "owned",
-      "usage": "Commuting",
-      "annualMileage": "6590",
-      "costNew": "58999",
-      "primaryDriver": "1"
-    },
-    "Vehicle2": {
-      "year": "2025",
-      "make": "ajsd",
-      "model": "ehgd",
-      "vin": "VIN376683HJGDJSH",
-      "ownership": "owned",
-      "usage": "Commuting",
-      "annualMileage": "6590",
-      "costNew": "58999",
+      "ownership": "Owned",
+      "usage": "Commute",
+      "annualMileage": "12000",
+      "costNew": "28999",
       "primaryDriver": "1"
     }
   },
   "Coverages": {
-    "bodilyInjuryLiability": "50,0000/100,000",
-    "propertyDamageLiability": "50,000",
-    "uninsuredMotorist": "50,000/100,000",
-    "medicalPayments": "1,000",
-    "comprehensive": "250",
-    "collision": "250",
-    "rentalReimbursement": "30/day, 900 max",
+    "bodilyInjuryLiability": "50k/100k",
+    "propertyDamageLiability": "50k",
+    "uninsuredMotorist": "50k/100k",
+    "medicalPayments": "1k",
+    "comprehensive": "$250 ded",
+    "collision": "$250 ded",
+    "rentalReimbursement": "$30/day",
     "roadSideAssitance": "true"
   },
   "Cancellation": {
     "type": "Flat",
     "effectiveDate": "",
-    "reason": "Insured request — sold vehicle"
+    "reason": "Insured request"
   }
 }

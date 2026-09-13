@@ -1,4 +1,5 @@
 import BasePage from './BasePage.js';
+import { viewPolicyPage } from '../selectors/index.js';
 import { GlobalData } from '../support/GlobalData.js';
 import { log } from '../support/logger.js';
 
@@ -9,24 +10,8 @@ import { log } from '../support/logger.js';
 export default class ViewPolicyPage extends BasePage {
   static pageName = 'View Policy';
 
-  header = '//div[contains(@class,"wizard-head")]/div/h1';
-  statusBadge = '//div[contains(@class,"wizard-head")]//h1/span[contains(@class,"badge")]';
-  transactionHistory = '//h3[contains(normalize-space(), "Transaction History")]';
-  transactionItems = '//div[contains(@class,"timeline-item")]';
-  transaction = (type) => `//div[contains(@class,"timeline-item")][.//strong[normalize-space()="${type}"]]`;
-  cancellationBanner = '//div[contains(@class,"cancel-banner")]';
-  keyValue = (key) => `//div[contains(@class,"kv")][span[contains(@class,"kv-key")][starts-with(normalize-space(), "${key}")]]/span[contains(@class,"kv-val")]`;
-  sectionHeading = (title) => `//div[contains(@class,"card")]/h3[starts-with(normalize-space(), "${title}")]`;
-
-  backButton = this.button('Back');
-  policyChangeButton = this.button('Policy Change');
-  renewButton = this.button('Renew');
-  cancelPolicyButton = this.button('Cancel Policy');
-  reinstateButton = this.button('Reinstate');
-  continueSubmissionButton = this.button('Continue Submission');
-
   get pageHeading() {
-    return this.transactionHistory;
+    return viewPolicyPage.pageHeading;
   }
 
   async fillOutPage() {
@@ -39,57 +24,54 @@ export default class ViewPolicyPage extends BasePage {
   }
 
   /** Last page of the flow: nothing to continue to. */
-  async clickOnNext() {
-    GlobalData.setCurrentPage('View Policy');
-  }
+  async clickOnNext() {}
 
   async grabPolicyNumber() {
-    const text = await this.grabText(this.header);
+    const text = await this.ui.grabTextFrom(viewPolicyPage.header);
     return text.match(/PA-\d+/)?.[0] || text.split(/\s+/)[0];
   }
 
   async grabStatus() {
-    return this.grabText(this.statusBadge);
+    return this.ui.grabTextFrom(viewPolicyPage.statusBadge);
   }
 
   async grabValueFor(key) {
-    return this.grabText(this.keyValue(key));
+    return this.ui.grabTextFrom(viewPolicyPage.keyValue(key));
   }
 
+  /** "Drivers (2)" -> 2 */
   async grabSectionCount(title) {
-    const text = await this.grabText(this.sectionHeading(title));
+    const text = await this.ui.grabTextFrom(viewPolicyPage.sectionHeading(title));
     return Number(text.match(/\((\d+)\)/)?.[1] ?? 0);
   }
 
   async grabTransactionTypes() {
-    const items = await this.findAll(`${this.transactionItems}//strong`);
-    return Promise.all(items.map((i) => i.evaluate((el) => el.innerText.trim())));
+    return this.ui.grabTextsFrom(viewPolicyPage.transactionTypes);
   }
 
   async hasTransaction(type) {
-    return this.isVisible(this.transaction(type), 1000);
+    return this.ui.isElementVisible(viewPolicyPage.transaction(type), 1000);
   }
 
   async grabCancellationBanner() {
-    return this.grabText(this.cancellationBanner);
+    return this.ui.grabTextFrom(viewPolicyPage.cancellationBanner);
   }
 
   async renewPolicy() {
-    await this.click(this.renewButton);
-    await this.waitFor(this.transaction('Renewal'));
+    await this.ui.click(viewPolicyPage.renewButton);
+    await this.verify.validateElementPresent(viewPolicyPage.transaction('Renewal'), 'renewal not listed in the transaction history');
     log.info('policy renewed');
   }
 
   async reinstatePolicy() {
-    await this.click(this.reinstateButton);
-    await this.waitFor(this.cancelPolicyButton);
+    await this.ui.click(viewPolicyPage.reinstateButton);
+    await this.ui.waitForElement(viewPolicyPage.cancelPolicyButton);
     GlobalData.setValue('policy.status', await this.grabStatus());
     log.info('policy reinstated');
   }
 
   async backToHome() {
-    await this.click(this.backButton);
-    await this.waitFor('//h1[normalize-space()="Policies"]');
-    GlobalData.setCurrentPage('Home Page');
+    await this.ui.click(viewPolicyPage.backButton);
+    await this.ui.waitForElement(viewPolicyPage.dashboardHeading);
   }
 }
