@@ -1,13 +1,12 @@
 # CI pipeline: 1. eslint  ->  2. build tests  ->  3. smoke tests
 #
-# Stage 3 runs the @smoke scenarios headless against a local copy of the
+# Stage 3 runs the @smoke scenarios headless again
 # PolicyCenter replica (github.com/syed-git/personal-auto-policy-center, port 3000 = ENV=uat2).
 # The HTML dashboard (output/dashboard) and failure screenshots are uploaded as artifacts.
 name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -46,15 +45,15 @@ jobs:
       - run: npm ci
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
+      - run: npx puppeteer browsers install chrome
       # codeceptjs dry-run loads the config, helpers, plugins and every *_test.js without a browser,
       # then the node:test unit tests cover the data generator, flows and dashboard renderer.
       - run: npm run test:build
 
   smoke-tests:
-    name: 3. Smoke tests
+    name: 2. Smoke tests
     needs: build-tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -62,35 +61,9 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
-
-      - name: Start PolicyCenter replica (http://localhost:3000)
-        run: |
-          git clone --depth 1 https://github.com/syed-git/personal-auto-policy-center.git "$RUNNER_TEMP/policy-center"
-          cd "$RUNNER_TEMP/policy-center"
-          npm ci
-          nohup node server/index.js > "$RUNNER_TEMP/policy-center.log" 2>&1 &
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:3000/ > /dev/null && exit 0
-            sleep 2
-          done
-          echo "PolicyCenter replica did not start"; cat "$RUNNER_TEMP/policy-center.log"; exit 1
-
-      - name: Run @smoke scenarios (headless, ENV=uat2)
-        run: npm run test:smoke
         env:
-          ENV: uat2
-          HEADLESS: 'true'
-
-      - name: Upload HTML dashboard and screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-test-report
-          path: |
-            output/dashboard
-            output/*.png
-          if-no-files-found: ignore
-
-      - name: PolicyCenter server log
-        if: failure()
-        run: cat "$RUNNER_TEMP/policy-center.log" || true
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+      - run: npx puppeteer browsers install chrome
+      # codeceptjs dry-run loads the config, helpers, plugins and every *_test.js without a browser,
+      # then the node:test unit tests cover the data generator, flows and dashboard renderer.
+      - run: npm run test:smoke

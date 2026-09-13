@@ -1,0 +1,93 @@
+{
+  "generatedAt": "2026-09-13T21:06:11.502Z",
+  "startedAt": "2026-09-13T21:04:46.991Z",
+  "finishedAt": "2026-09-13T21:06:11.502Z",
+  "stats": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "failedHooks": 0,
+    "duration": 84511,
+    "passRate": 100
+  },
+  "environment": {
+    "name": "uat1",
+    "baseUrl": "https://personal-auto-policy-center.onrender.com/",
+    "browser": "chrome",
+    "headless": "true",
+    "node": "v22.13.1",
+    "os": "Windows_NT 10.0.22631 (x64)",
+    "host": "DESKTOP-LO80NQO",
+    "command": "codecept.js run --steps --grep @build",
+    "ci": ""
+  },
+  "tests": [
+    {
+      "title": "Issue a current dated personal auto policy end to end",
+      "feature": "New Submission @build",
+      "tags": [
+        "@build"
+      ],
+      "status": "passed",
+      "duration": 15449,
+      "error": "",
+      "screenshot": null,
+      "steps": [
+        "I login as \"accountExecutive\"",
+        "I get auto graystone data",
+        "I execute flow \"New Submission\"",
+        "I grab policy number",
+        "I grab transaction number",
+        "I grab policy status"
+      ],
+      "file": "tests\\build\\build-test_test.js"
+    },
+    {
+      "title": "Add a driver and a vehicle to an in-force policy",
+      "feature": "New Submission @build",
+      "tags": [
+        "@build"
+      ],
+      "status": "passed",
+      "duration": 30130,
+      "error": "",
+      "screenshot": null,
+      "steps": [
+        "I login as \"accountExecutive\"",
+        "I get auto graystone data {\"numberOfInsured\":\"1\",\"numberOfDrivers\":\"1\",\"numberOfVehicles\":\"1\"}",
+        "I execute flow \"New Submission\"",
+        "I grab policy number",
+        "I get auto graystone data {\"numberOfInsured\":\"1\",\"Insured\":{\"NamedInsured1\":{\"firstName\":\"Joseph\",\"lastName\":\"Wilson\",\"dateOfBirth\":\"12-15-1992\",\"gender\":\"Male\",\"isPrimaryInsured\":\"true\"}},\"numberOfDrivers\":\"1\",\"numberOfVehicles\":\"1\",\"Vehicles\":{\"Vehicle1\":{\"primaryDriver\":\"1\"}}}",
+        "I execute flow \"Policy Change\", {\"policyNumber\":\"PA-1000040\",\"changeEffectiveDate\":\"09-23-2026\"}",
+        "I use page \"View Policy\"",
+        "I grab policy number",
+        "I grab transaction number",
+        "I grab policy status"
+      ],
+      "file": "tests\\build\\build-test_test.js"
+    },
+    {
+      "title": "Flat cancel an in-force policy and reinstate it",
+      "feature": "New Submission @build",
+      "tags": [
+        "@build"
+      ],
+      "status": "passed",
+      "duration": 18963,
+      "error": "",
+      "screenshot": null,
+      "steps": [
+        "I login as \"accountExecutive\"",
+        "I get auto graystone data {\"numberOfInsured\":\"1\",\"numberOfDrivers\":\"1\",\"numberOfVehicles\":\"1\",\"Cancellation\":{\"type\":\"Flat\",\"reason\":\"Insured request — sold vehicle\"}}",
+        "I execute flow \"New Submission\"",
+        "I grab policy number",
+        "I execute flow \"Cancellation\", {\"policyNumber\":\"PA-1000041\"}",
+        "I use page \"View Policy\"",
+        "I grab policy status",
+        "I grab policy status"
+      ],
+      "file": "tests\\build\\build-test_test.js"
+    }
+  ]
+}

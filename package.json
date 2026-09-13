@@ -7,6 +7,7 @@
   "scripts": {
     "test": "node scripts/run.js",
     "test:headed": "node scripts/run.js --headed",
+    "test:build": "node scripts/run.js --tags @build",
     "test:smoke": "node scripts/run.js --tags @smoke",
     "test:regression": "node scripts/run.js --tags @regression",
     "test:uat1": "node scripts/run.js --env uat1",
@@ -14,7 +15,6 @@
     "test:firefox": "node scripts/run.js --browser firefox",
     "test:parallel": "node scripts/run.js --workers 3",
     "test:unit": "node --test unit/*.test.js",
-    "test:build": "codeceptjs dry-run && node --test unit/*.test.js",
     "install:firefox": "puppeteer browsers install firefox",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

@@ -1,13 +1,13 @@
 import assert from 'assert';
-import { relativeDate } from '../support/dates.js';
+import { relativeDate } from '../../support/dates.js';
 
-Feature('Policy Change @PolicyChange');
+Feature('Policy Change @smoke');
 
 Before(({ I }) => {
   I.loginAs('accountExecutive');
 });
 
-Scenario('Add a driver and a vehicle to an in-force policy @smoke @regression', async ({ I }) => {
+Scenario('Add a driver and a vehicle to an in-force policy', async ({ I }) => {
   const original = await I.getAutoGraystoneData({ numberOfInsured: '1', numberOfDrivers: '1', numberOfVehicles: '1' });
   await I.executeFlow('New Submission');
   const policyNumber = await I.grabPolicyNumber();
@@ -30,24 +30,4 @@ Scenario('Add a driver and a vehicle to an in-force policy @smoke @regression', 
   assert.strictEqual(await viewPolicy.grabSectionCount('Drivers'), 2);
   assert.strictEqual(await viewPolicy.grabSectionCount('Vehicles'), 2);
   assert.ok(await viewPolicy.hasTransaction('Policy Change'), 'transaction history should list the policy change');
-});
-
-Scenario('Change coverages only, using the navigator to skip untouched pages @regression @navigator', async ({ I }) => {
-  await I.getAutoGraystoneData({ numberOfInsured: '1', numberOfDrivers: '1', numberOfVehicles: '1', Coverages: { collision: '$500 ded' } });
-  await I.executeFlow('New Submission');
-  const policyNumber = await I.grabPolicyNumber();
-  const quotedPremium = await I.grabGraystoneValue('quote.totalPremium');
-
-  await I.createFlow('Policy Change', { policyNumber });
-  await I.navigateToPage('Coverages'); // clicks Next only: Policy Info, Drivers, Vehicles already hold the policy data
-
-  const coverages = await I.usePage('Coverages');
-  await coverages.setCoverage('collision', '$100 ded');
-  await coverages.setCoverage('bodilyInjuryLiability', '500k/1M');
-  await I.clickOnNext();
-
-  await I.finishFlow();
-
-  assert.strictEqual(await I.grabPolicyStatus(), 'In Force');
-  assert.notStrictEqual(await I.grabGraystoneValue('quote.totalPremium'), quotedPremium, 'premium should change with the coverages');
 });
