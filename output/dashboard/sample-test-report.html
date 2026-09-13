@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PolicyCenter automation - execution dashboard</title>
+<style>
+  :root { --bg:#f4f6fa; --card:#fff; --text:#1f2937; --muted:#6b7280; --line:#e5e7eb; --pass:#16a34a; --fail:#dc2626; --skip:#d97706; --accent:#2563eb; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text); }
+  header { background:#111827; color:#fff; padding:20px 32px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+  header h1 { margin:0; font-size:20px; } header .sub { color:#9ca3af; font-size:13px; }
+  main { padding:24px 32px; max-width:1300px; margin:0 auto; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .card .label { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  .card .value { font-size:26px; font-weight:600; margin-top:2px; }
+  .card.pass .value { color:var(--pass); } .card.fail .value { color:var(--fail); } .card.skip .value { color:var(--skip); }
+  .bar { height:8px; border-radius:6px; background:var(--line); overflow:hidden; display:flex; margin-bottom:20px; }
+  .bar span { display:block; height:100%; } .bar .p { background:var(--pass);} .bar .f { background:var(--fail);} .bar .s { background:var(--skip);}
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin-bottom:20px; }
+  .panel h2 { margin:0 0 10px; font-size:15px; }
+  dl.env { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:6px 24px; margin:0; }
+  dl.env div { display:flex; gap:8px; } dl.env dt { color:var(--muted); min-width:80px; } dl.env dd { margin:0; word-break:break-all; }
+  .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  .toolbar button { border:1px solid var(--line); background:#fff; border-radius:20px; padding:4px 12px; cursor:pointer; }
+  .toolbar button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .toolbar input { flex:1; min-width:200px; border:1px solid var(--line); border-radius:6px; padding:6px 10px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:10px 8px; border-top:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; border-top:none; }
+  td.num { white-space:nowrap; color:var(--muted); text-align:right; }
+  .title { font-weight:500; } .meta { color:var(--muted); font-size:12px; }
+  .tags { margin-top:4px; } .tag { display:inline-block; font-size:11px; background:#eef2ff; color:#3730a3; border-radius:4px; padding:1px 6px; margin-right:4px; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:12px; font-size:12px; font-weight:600; color:#fff; text-transform:capitalize; }
+  .badge.passed { background:var(--pass);} .badge.failed { background:var(--fail);} .badge.skipped,.badge.unknown { background:var(--skip);}
+  .toggle { border:1px solid var(--line); background:#fff; border-radius:6px; padding:2px 8px; cursor:pointer; font-size:12px; }
+  tr.details td { background:#fafafa; }
+  tr.details h4 { margin:8px 0 4px; font-size:13px; color:var(--muted); }
+  pre.error { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; border-radius:8px; padding:10px 12px; white-space:pre-wrap; word-break:break-word; font-size:12px; }
+  img { max-width:100%; border:1px solid var(--line); border-radius:8px; }
+  ol.steps { margin:0; padding-left:22px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; color:#374151; max-height:320px; overflow:auto; }
+  footer { color:var(--muted); font-size:12px; text-align:center; padding:12px; }
+</style>
+</head>
+<body>
+<header>
+  <div><h1>PolicyCenter automation - execution dashboard</h1>
+  <div class="sub">9/13/2026, 3:02:15 PM · uat1 · chrome</div></div>
+  <div class="sub"><span class="badge passed">all passed</span></div>
+</header>
+<main>
+  <section class="cards">
+    <div class="card"><div class="label">Scenarios</div><div class="value">11</div></div>
+    <div class="card pass"><div class="label">Passed</div><div class="value">11</div></div>
+    <div class="card fail"><div class="label">Failed</div><div class="value">0</div></div>
+    <div class="card skip"><div class="label">Skipped</div><div class="value">0</div></div>
+    <div class="card"><div class="label">Pass rate</div><div class="value">100%</div></div>
+    <div class="card"><div class="label">Duration</div><div class="value">4m 12s</div></div>
+  </section>
+  <div class="bar">
+    <span class="p" style="width:100%"></span>
+    <span class="f" style="width:0%"></span>
+    <span class="s" style="width:0%"></span>
+  </div>
+  <section class="panel"><h2>Environment</h2><dl class="env"><div><dt>name</dt><dd>uat1</dd></div><div><dt>baseUrl</dt><dd>https://personal-auto-policy-center.onrender.com/</dd></div><div><dt>browser</dt><dd>chrome</dd></div><div><dt>headless</dt><dd>true</dd></div><div><dt>node</dt><dd>v22.13.1</dd></div><div><dt>os</dt><dd>Windows_NT 10.0.22631 (x64)</dd></div><div><dt>host</dt><dd>DESKTOP-LO80NQO</dd></div><div><dt>command</dt><dd>codecept.js run --steps --grep @smoke</dd></div></dl></section>
+  <section class="panel">
+    <h2>Scenarios</h2>
+    <div class="toolbar">
+      <button class="filter active" data-filter="all">All (11)</button>
+      <button class="filter" data-filter="passed">Passed (11)</button>
+      <button class="filter" data-filter="failed">Failed (0)</button>
+      <button class="filter" data-filter="skipped">Skipped (0)</button>
+      <input id="search" type="search" placeholder="Filter by feature, scenario or tag...">
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Status</th><th>Scenario</th><th class="num">Duration</th><th></th></tr></thead>
+      <tbody>
+      <tr class="row passed" data-status="passed" data-text="login functionality @smoke login as account executive @smoke">
+        <td class="num">1</td>
+        <td><span class="badge passed">passed</span></td>
+        <td>
+          <div class="title">Login as account executive</div>
+          <div class="meta">Login Functionality @smoke · tests\smoke\login-test_test.js</div>
+          <div class="tags"><span class="tag">@smoke</span></div>
+        </td>
+        <td class="num">4s</td>
+        <td class="num"><button class="toggle" data-target="d0">details</button></td>
+      </tr>
+      <tr class="details" id="d0" data-status="passed" hidden>
+        <td colspan="5">
+          
+          
+          <h4>Steps (2)</h4><ol class="steps"><li>I login as &quot;accountExecutive&quot;</li><li>I logout</li></ol>
+        </td>
+      </tr>
+      <tr class="row passed" data-status="passed" data-text="login functionality @smoke login as underwriter @smoke">
+        <td class="num">2</td>
+        <td><span class="badge passed">passed</span></td>
+        <td>
+          <div class="title">Login as underwriter</div>
+          <div class="meta">Login Functionality @smoke · tests\smoke\login-test_test.js</div>
+          <div class="tags"><span class="tag">@smoke</span></div>
+        </td>
+        <td class="num">5s</td>
+        <td class="num"><button class="toggle" data-target="d1">details</button></td>
+      </tr>
+      <tr class="details" id="d1" data-status="passed" hidden>
+        <td colspan="5">
+          
+          
+          <h4>Steps (2)</h4><ol class="steps"><li>I login as &quot;underwriter&quot;</li><li>I logout</li></ol>
+        </td>
+      </tr>
+      <tr class="row passed" data-status="passed" data-text="new submission @smoke issue a policy with two insureds, two drivers and two vehicles @smoke">
+        <td class="num">3</td>
+        <td><span class="badge passed">passed</span></td>
+        <td>
+          <div class="title">Issue a policy with two insureds, two drivers and two vehicles</div>
+          <div class="meta">New Submission @smoke · tests\smoke\new-submission_test.js</div>
+          <div class="tags"><span class="tag">@smoke</span></div>
+        </td>
+        <td class="num">21s</td>
+        <td class="num"><button class="toggle" data-target="d2">details</button></td>
+      </tr>
+      <tr class="details" id="d2" data-status="passed" hidden>
+        <td colspan="5">
+          
+          
+          <h4>Steps (4)</h4><ol class="steps"><li>I login as &quot;accountExecutive&quot;</li><li>I get auto graystone data {&quot;numberOfInsured&quot;:&quot;2&quot;,&quot;numberOfDrivers&quot;:&quot;2&quot;,&quot;numberOfVehicles&quot;:&quot;2&quot;}</li><li>I execute flow &quot;New Submission&quot;</li><li>I use page &quot;View Policy&quot;</li></ol>
+        </td>
+      </tr>
+      <tr class="row passed" data-status="passed" data-text="new submission @smoke backdated effective date is routed to the underwriter and approved @underwriting @underwriting @smoke">
+        <td class="num">4</td>
+        <td><span class="badge passed">passed</span></td>
+        <td>
+          <div class="title">Backdated effective date is routed to the underwriter and approved @underwriting</div>
+          <div class="meta">New Submission @smoke · tests\smoke\new-submission_test.js</div>
+          <div class="tags"><span class="tag">@underwriting</span><span class="tag">@smoke</span></div>
+        </td>
+        <td class="num">23s</td>
+        <td class="num"><button class="toggle" data-target="d3">details</button></td>
+      </tr>
+      <tr class="details" id="d3" data-status="passed" hidden>
+        <td colspan="5">
+          
+          
+          <h4>Steps (15)</h4><ol class="steps"><li>I login as &quot;accountExecutive&quot;</li><li>I get auto graystone data {&quot;effectiveDate&quot;:&quot;05-16-2026&quot;,&quot;numberOfInsured&quot;:&quot;1&quot;,&quot;numberOfDrivers&quot;:&quot;1&quot;,&quot;numberOfVehicles&quot;:&quot;1&quot;}</li><li>I create flow &quot;New Submission&quot;</li><li>I navigate to &quot;Risk Analysis&quot;</li><li>I use page &quot;Risk Analysis&quot;</li><li>I fill out page</li><li>I grab transaction number</li><li>I logout</li><li>I login as &quot;underwriter&quot;</li><li>I open transaction</li><li>I approve all issues</li><li>I logout</li><li>I login as &quot;accountExecutive&quot;</li><li>I finish flow</li><li>I grab policy status</li></ol>
+        </td>
+      </tr>
+      <tr class="row passed" data-status="passed" data-text="new submission @smoke issue a current dated new policy with optional details for insured @smoke">
+        <td class="num">5</td>
+        <td><span class="badge passed">passed</span></td>
+        <td>
+          <div class="title">Issue a current dated new policy with optional details for insured</div>
+          <div class="meta">New Submission @smoke · tests\smoke\new-submission_test.js</div>
+          <div class="tags"><span class="tag">@smoke</span></div>
+        </td>
+        <td class="num">17s</td>
+        <td class="num"><button class="toggle" data-target="d4">details</button></td>
+      </tr>
+      <tr class="details" id="d4" data-status="passed" hidden>
+        <td colspan="5">
+          
+          
+          <h4>Steps (4)</h4><ol class="steps"><li>I login as &quot;accountExecutive&quot;</li><li>I get auto graystone data {&quot;numberOfInsured&quot;:&quot;1&quot;,&quot;Insured&quot;:{&quot;NamedInsured1&quot;:{&quot;firstName&quot;:&quot;Joe&quot;,&quot;lastName&quot;:&quot;Biden&quot;,&quot;dateOfBirth&quot;:&quot;1990-01-01&quot;,&quot;gender&quot;:&quot;Male&quot;,&quot;email&quot;:&quot;joe.biden@example.com&quot;,&quot;phone&quot;:&quot;536478&quot;,&quot;address&quot;:&quot;Papinin 227&quot;,&quot;city&quot;:&quot;New York&quot;,&quot;state&quot;:&quot;Florida&quot;,&quot;zip&quot;:&quot;45027&quot;,&quot;isPrimaryInsured&quot;:true}}}</li><li>I execute flow &quot;New Submission&quot;</li><li>I use page &quot;View Policy&quot;</li></ol>
+        </td>
+      </tr>
+      <tr class="row passed" data-status="passed" data-text="new submission @smoke issue a current dated new policy with optional details for drivers @smoke">
+        <td class="num">6</td>
+        <td><span class="badge passed">passed</span></td>
+        <td>
+          <div class="title">Issue a current dated new policy with optional details for drivers</div>
+          <div class="meta">New Submission @smoke · tests\smoke\new-submission_test.js</div>
+          <div class="tags"><span class="tag">@smoke</span></div>
+        </td>
+        <td class="num">18s</td>
+        <td class="num"><button class="toggle" data-target="d5">details</button></td>
+      </tr>
+      <tr class="details" id="d5" data-status="passed" hidden>
+        <td colspan="5">
+          
+          
+          <h4>Steps (4)</h4><ol class="steps"><li>I login as &quot;accountExecutive&quot;</li><li>I get auto graystone data {&quot;numberOfDrivers&quot;:&quot;1&quot;,&quot;Drivers&quot;:{&quot;Driver1&quot;:{&quot;firstName&quot;:&quot;John&quot;,&quot;lastName&quot;:&quot;Wick&quot;,&quot;dateOfBirth&quot;:&quot;1989-01-08&quot;,&quot;gender&quot;:&quot;Male&quot;,&quot;licenseNumber&quot;:9087867562,&quot;licenseState&quot;:&quot;NY&quot;,&quot;yearsLicensed&quot;:&quot;6&quot;,&quot;accidents&quot;:&quot;2&quot;,&quot;violations&quot;:&quot;1&quot;,&quot;relationshipToInsured&quot;:&quot;Child&quot;}}}</li><li>I execute flow &quot;New Submission&quot;</li><li>I use page &quot;View Policy&quot;</li></ol>
+        </td>
+      </tr>
+      <tr class="row passed" data-status="passed" data-text="new submission @smoke issue a current dated new policy with optional details for vehicles @smoke">
+        <td class="num">7</td>
+        <td><span class="badge passed">passed</span></td>
+        <td>
+          <div class="title">Issue a current dated new policy with optional details for vehicles</div>
+          <div class="meta">New Submission @smoke · tests\smoke\new-submission_test.js</div>
+          <div class="tags"><span class="tag">@smoke</span></div>
+        </td>
+        <td class="num">17s</td>
+        <td class="num"><button class="toggle" data-target="d6">details</button></td>
+      </tr>
+      <tr class="details" id="d6" data-status="passed" hidden>
+        <td colspan="5">
+          
+          
+          <h4>Steps (4)</h4><ol class="steps"><li>I login as &quot;accountExecutive&quot;</li><li>I get auto graystone data {&quot;numberOfVehicles&quot;:&quot;1&quot;,&quot;Vehicles&quot;:{&quot;Vehicle1&quot;:{&quot;vin&quot;:&quot;VIN67892GHUT623&quot;,&quot;make&quot;:&quot;Toyota&quot;,&quot;model&quot;:&quot;Camry&quot;,&quot;ownership&quot;:&quot;Rented&quot;,&quot;usage&quot;:&quot;Pleasure&quot;,&quot;annualMileage&quot;:&quot;6474&quot;,&quot;costNew&quot;:&quot;5688&quot;,&quot;primaryDriver&quot;:&quot;1&quot;}}}</li><li>I execute flow &quot;New Submission&quot;</li><li>I use page &quot;View Policy&quot;</li></ol>
+        </td>
+      </tr>
+      <tr class="row passed" data-status="passed" data-text="new submission @smoke issue a current dated new policy with all coverages @smoke">
+        <td class="num">8</td>
+        <td><span class="badge passed">passed</span></td>
+        <td>
+          <div class="title">Issue a current dated new policy with all coverages</div>
+          <div class="meta">New Submission @smoke · tests\smoke\new-submission_test.js</div>
+          <div class="tags"><span class="tag">@smoke</span></div>
+        </td>
+        <td class="num">18s</td>
+        <td class="num"><button class="toggle" data-target="d7">details</button></td>
+      </tr>
+      <tr class="details" id="d7" data-status="passed" hidden>
+        <td colspan="5">
+          
+          
+          <h4>Steps (4)</h4><ol class="steps"><li>I login as &quot;accountExecutive&quot;</li><li>I get auto graystone data {&quot;Coverages&quot;:{&quot;bodilyInjuryLiability&quot;:&quot;50k/100k&quot;,&quot;propertyDamageLiability&quot;:&quot;50k&quot;,&quot;uninsuredMotorist&quot;:&quot;50k/100k&quot;,&quot;medicalPayments&quot;:&quot;10k&quot;,&quot;collision&quot;:&quot;250&quot;,&quot;comprehensive&quot;:&quot;250&quot;,&quot;rentalReimbursement&quot;:&quot;$50/day&quot;,&quot;roadSideAssitance&quot;:&quot;true&quot;}}</li><li>I execute flow &quot;New Submission&quot;</li><li>I use page &quot;View Policy&quot;</li></ol>
+        </td>
+      </tr>
+      <tr class="row passed" data-status="passed" data-text="cancellation @smoke flat cancel an in-force policy and reinstate it @smoke">
+        <td class="num">9</td>
+        <td><span class="badge passed">passed</span></td>
+        <td>
+          <div class="title">Flat cancel an in-force policy and reinstate it</div>
+          <div class="meta">Cancellation @smoke · tests\smoke\policy-cancellation_test.js</div>
+          <div class="tags"><span class="tag">@smoke</span></div>
+        </td>
+        <td class="num">20s</td>
+        <td class="num"><button class="toggle" data-target="d8">details</button></td>
+      </tr>
+      <tr class="details" id="d8" data-status="passed" hidden>
+        <td colspan="5">
+          
+          
+          <h4>Steps (8)</h4><ol class="steps"><li>I login as &quot;accountExecutive&quot;</li><li>I get auto graystone data {&quot;numberOfInsured&quot;:&quot;1&quot;,&quot;numberOfDrivers&quot;:&quot;1&quot;,&quot;numberOfVehicles&quot;:&quot;1&quot;,&quot;Cancellation&quot;:{&quot;type&quot;:&quot;Flat&quot;,&quot;reason&quot;:&quot;Insured request — sold vehicle&quot;}}</li><li>I execute flow &quot;New Submission&quot;</li><li>I grab policy number</li><li>I execute flow &quot;Cancellation&quot;, {&quot;policyNumber&quot;:&quot;PA-1000036&quot;}</li><li>I use page &quot;View Policy&quot;</li><li>I grab policy status</li><li>I grab policy status</li></ol>
+        </td>
+      </tr>
+      <tr class="row passed" data-status="passed" data-text="cancellation @smoke pro-rata cancellation with a future effective date @smoke">
+        <td class="num">10</td>
+        <td><span class="badge passed">passed</span></td>
+        <td>
+          <div class="title">Pro-rata cancellation with a future effective date</div>
+          <div class="meta">Cancellation @smoke · tests\smoke\policy-cancellation_test.js</div>
+          <div class="tags"><span class="tag">@smoke</span></div>
+        </td>
+        <td class="num">19s</td>
+        <td class="num"><button class="toggle" data-target="d9">details</button></td>
+      </tr>
+      <tr class="details" id="d9" data-status="passed" hidden>
+        <td colspan="5">
+          
+          
+          <h4>Steps (8)</h4><ol class="steps"><li>I login as &quot;accountExecutive&quot;</li><li>I get auto graystone data {&quot;numberOfInsured&quot;:&quot;1&quot;,&quot;numberOfDrivers&quot;:&quot;1&quot;,&quot;numberOfVehicles&quot;:&quot;1&quot;,&quot;Cancellation&quot;:{&quot;type&quot;:&quot;Pro-rata&quot;,&quot;effectiveDate&quot;:&quot;10-13-2026&quot;,&quot;reason&quot;:&quot;Moved out of state&quot;}}</li><li>I execute flow &quot;New Submission&quot;</li><li>I create flow &quot;Cancellation&quot;</li><li>I use page &quot;Cancel Policy&quot;</li><li>I grab auto graystone data</li><li>I finish flow</li><li>I grab policy status</li></ol>
+        </td>
+      </tr>
+      <tr class="row passed" data-status="passed" data-text="policy change @smoke add a driver and a vehicle to an in-force policy @smoke">
+        <td class="num">11</td>
+        <td><span class="badge passed">passed</span></td>
+        <td>
+          <div class="title">Add a driver and a vehicle to an in-force policy</div>
+          <div class="meta">Policy Change @smoke · tests\smoke\policy-change_test.js</div>
+          <div class="tags"><span class="tag">@smoke</span></div>
+        </td>
+        <td class="num">33s</td>
+        <td class="num"><button class="toggle" data-target="d10">details</button></td>
+      </tr>
+      <tr class="details" id="d10" data-status="passed" hidden>
+        <td colspan="5">
+          
+          
+          <h4>Steps (10)</h4><ol class="steps"><li>I login as &quot;accountExecutive&quot;</li><li>I get auto graystone data {&quot;numberOfInsured&quot;:&quot;1&quot;,&quot;numberOfDrivers&quot;:&quot;1&quot;,&quot;numberOfVehicles&quot;:&quot;1&quot;}</li><li>I execute flow &quot;New Submission&quot;</li><li>I grab policy number</li><li>I get auto graystone data {&quot;numberOfInsured&quot;:&quot;1&quot;,&quot;Insured&quot;:{&quot;NamedInsured1&quot;:{&quot;firstName&quot;:&quot;Richard&quot;,&quot;lastName&quot;:&quot;Rodriguez&quot;,&quot;dateOfBirth&quot;:&quot;11-01-1985&quot;,&quot;gender&quot;:&quot;Other&quot;,&quot;isPrimaryInsured&quot;:&quot;true&quot;}},&quot;numberOfDrivers&quot;:&quot;1&quot;,&quot;numberOfVehicles&quot;:&quot;1&quot;,&quot;Vehicles&quot;:{&quot;Vehicle1&quot;:{&quot;primaryDriver&quot;:&quot;1&quot;}}}</li><li>I execute flow &quot;Policy Change&quot;, {&quot;policyNumber&quot;:&quot;PA-1000038&quot;,&quot;changeEffectiveDate&quot;:&quot;09-23-2026&quot;}</li><li>I use page &quot;View Policy&quot;</li><li>I grab policy number</li><li>I grab transaction number</li><li>I grab policy status</li></ol>
+        </td>
+      </tr></tbody>
+    </table>
+  </section>
+</main>
+<footer>Generated by plugins/htmlDashboard.js · 2026-09-13T21:02:15.404Z</footer>
+<script>
+  let filter = 'all';
+  const search = document.getElementById('search');
+  const apply = () => {
+    const q = search.value.trim().toLowerCase();
+    document.querySelectorAll('tr.row').forEach((row) => {
+      const show = (filter === 'all' || row.dataset.status === filter) && (!q || row.dataset.text.includes(q));
+      row.hidden = !show;
+      const details = row.nextElementSibling;
+      if (!show && details) details.hidden = true;
+    });
+  };
+  document.querySelectorAll('.filter').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('.filter').forEach((x) => x.classList.remove('active'));
+    b.classList.add('active'); filter = b.dataset.filter; apply();
+  }));
+  search.addEventListener('input', apply);
+  document.querySelectorAll('.toggle').forEach((b) => b.addEventListener('click', () => {
+    const d = document.getElementById(b.dataset.target); d.hidden = !d.hidden;
+  }));
+  document.querySelectorAll('tr.row.failed').forEach((row) => { const d = row.nextElementSibling; if (d) d.hidden = false; });
+</script>
+</body>
+</html>

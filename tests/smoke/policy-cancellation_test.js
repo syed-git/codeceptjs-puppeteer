@@ -1,13 +1,13 @@
 import assert from 'assert';
-import { relativeDate } from '../support/dates.js';
+import { relativeDate } from '../../support/dates.js';
 
-Feature('Cancellation @Cancellation');
+Feature('Cancellation @smoke');
 
 Before(({ I }) => {
   I.loginAs('accountExecutive');
 });
 
-Scenario('Flat cancel an in-force policy and reinstate it @smoke @regression', async ({ I }) => {
+Scenario('Flat cancel an in-force policy and reinstate it', async ({ I }) => {
   await I.getAutoGraystoneData({
     numberOfInsured: '1',
     numberOfDrivers: '1',
@@ -28,7 +28,7 @@ Scenario('Flat cancel an in-force policy and reinstate it @smoke @regression', a
   assert.strictEqual(await I.grabPolicyStatus(), 'In Force');
 });
 
-Scenario('Pro-rata cancellation with a future effective date @regression', async ({ I }) => {
+Scenario('Pro-rata cancellation with a future effective date', async ({ I }) => {
   await I.getAutoGraystoneData({
     numberOfInsured: '1',
     numberOfDrivers: '1',
