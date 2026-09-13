@@ -1,6 +1,9 @@
 /**
  * Test-scoped shared state. Reset at the start of every scenario by PolicyCenterHelper.
  * Holds the AutoGraystone data and the identifiers captured while running flows.
+ *
+ * Transaction numbers are stored per flow so `I.openTransaction()` can reopen the
+ * right one: New Submission -> submission number, Policy Change / Cancellation -> policy number.
  */
 class GlobalDataStore {
   constructor() {
@@ -11,6 +14,7 @@ class GlobalDataStore {
     this.data = {};
     this.policyNumber = '';
     this.submissionNumber = '';
+    this.transactions = {};
     this.currentFlow = '';
     this.currentPage = '';
   }
@@ -56,6 +60,19 @@ class GlobalDataStore {
 
   getSubmissionNumber() {
     return this.submissionNumber;
+  }
+
+  /** Remembers the transaction number of a flow ("New Submission" -> "PA-1000012"). */
+  setTransactionNumber(flowName, number) {
+    if (!flowName || !number) return;
+    this.transactions[flowName] = number;
+    if (flowName === 'New Submission') this.submissionNumber = number;
+    else this.policyNumber = number;
+  }
+
+  /** Transaction number stored for the flow (falls back to policy, then submission number). */
+  getTransactionNumber(flowName) {
+    return this.transactions[flowName] || this.policyNumber || this.submissionNumber || '';
   }
 
   setCurrentFlow(flowName) {

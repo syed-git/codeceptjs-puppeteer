@@ -7,9 +7,16 @@ import { log } from '../support/logger.js';
 /**
  * Test data helper exposed on `I`:
  *
- *   const data = await I.getAutoGraystoneData({ numberOfDrivers: '1', Drivers: { Driver1: { firstName: 'Harry' } } });
+ *   const data = await I.getAutoGraystoneData({ numberOfDrivers: '2', Drivers: { Driver1: { firstName: 'Harry' } } });
+ *   await I.getAutoGraystoneData();   // 1 insured, 1 driver, 1 vehicle, effective today
  *
- * Missing keys are filled with random-but-valid values following data/autoGraystoneTemplate.json.
+ * Only the fields PolicyCenter requires are generated when missing (names, DOB, gender, license
+ * number, VIN, year/make/model/ownership, liability coverages). Optional fields - email, phone,
+ * address, city, state, zip, licenseState, yearsLicensed, accidents, violations,
+ * relationshipToInsured, usage, annualMileage, costNew, primaryDriver and the optional
+ * coverages - are used only when you pass them. `isPrimaryInsured` is true for NamedInsured1 only.
+ * See data/autoGraystoneTemplate.json for every supported key.
+ *
  * The result is stored in GlobalData so the flow pages use it automatically.
  */
 class GrayStoneHelper extends Helper {
@@ -41,7 +48,7 @@ class GrayStoneHelper extends Helper {
     return GlobalData.getData();
   }
 
-  /** Returns the template JSON that drives generation. */
+  /** Returns the reference data set (data/autoGraystoneTemplate.json) listing every supported key. */
   async grabAutoGraystoneTemplate() {
     return JSON.parse(JSON.stringify(TEMPLATE));
   }

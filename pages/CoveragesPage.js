@@ -1,16 +1,15 @@
 import BasePage from './BasePage.js';
-import { GlobalData } from '../support/GlobalData.js';
+import { coveragesPage } from '../selectors/index.js';
 import { log } from '../support/logger.js';
 import { COVERAGES, isCoverageSelected, normalizeCoverageLimit } from '../support/normalizers.js';
 
+/** Wizard step 4 - coverages (data.Coverages.<key>); only the keys present in the data are touched. */
 export default class CoveragesPage extends BasePage {
   static pageName = 'Coverages';
 
-  coverageRow = (name) => `//div[contains(@class,"coverage-row")][.//span[contains(@class,"coverage-name")][starts-with(normalize-space(), "${name}")]]`;
-  coverageToggle = (name) => `${this.coverageRow(name)}//input[@type="checkbox"]`;
-  coverageLimit = (name) => `${this.coverageRow(name)}//select`;
-  coveragePremium = (name) => `${this.coverageRow(name)}//span[contains(@class,"coverage-premium")]`;
-  generateQuoteButton = this.button('Generate Quote');
+  get pageHeading() {
+    return coveragesPage.pageHeading;
+  }
 
   async fillOutPage(data) {
     await this.waitForPage();
@@ -22,9 +21,7 @@ export default class CoveragesPage extends BasePage {
   }
 
   async clickOnNext() {
-    await this.click(this.generateQuoteButton);
-    await this.waitFor(this.stepHeading('Quote'));
-    GlobalData.setCurrentPage('Quote');
+    await this.clickAndExpectNextPage(coveragesPage.generateQuoteButton, coveragesPage.nextHeading, 'Quote');
     log.info('quote generated');
   }
 
@@ -38,25 +35,25 @@ export default class CoveragesPage extends BasePage {
     const def = COVERAGES[key];
     if (!def) throw new Error(`[${this.pageName}] Unknown coverage key "${key}"`);
     const selected = isCoverageSelected(key, value);
-    if (!def.required) await this.setChecked(this.coverageToggle(def.name), selected);
+    if (!def.required) await this.ui.setCheckbox(coveragesPage.coverageToggle(def.name), selected);
     if (!selected) {
       log.info(`coverage '${def.name}' not selected`);
       return;
     }
     const limit = normalizeCoverageLimit(key, value);
-    if (limit) await this.select(this.coverageLimit(def.name), limit);
+    if (limit) await this.ui.selectOption(coveragesPage.coverageLimit(def.name), limit);
     log.info(`coverage '${def.name}' selected with limit '${limit}'`);
   }
 
   async isCoverageSelected(key) {
-    return this.isChecked(this.coverageToggle(COVERAGES[key].name));
+    return this.ui.isCheckboxChecked(coveragesPage.coverageToggle(COVERAGES[key].name));
   }
 
   async grabCoverageLimit(key) {
-    return this.grabValue(this.coverageLimit(COVERAGES[key].name));
+    return this.ui.grabValueFrom(coveragesPage.coverageLimit(COVERAGES[key].name));
   }
 
   async grabCoveragePremium(key) {
-    return this.grabText(this.coveragePremium(COVERAGES[key].name));
+    return this.ui.grabTextFrom(coveragesPage.coveragePremium(COVERAGES[key].name));
   }
 }

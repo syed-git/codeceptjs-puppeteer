@@ -1,6 +1,15 @@
 import { environment } from './config/environment.js';
 
+/**
+ * CodeceptJS configuration. Runtime switches come from the environment
+ * (see config/environment.js and scripts/run.js):
+ *
+ *   ENV=uat2        -> config/env/uat2.json (base URL + users)
+ *   BROWSER=firefox -> chrome (default) | firefox
+ *   HEADLESS=false  -> shows the browser window (Puppeteer `show: true`)
+ */
 const launchArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1400,950'];
+const showBrowser = !environment.headless;
 
 export const config = {
   name: 'codeceptjs-puppeteer',
@@ -9,10 +18,11 @@ export const config = {
   output: './output',
   timeout: 600,
   helpers: {
+    // Browser driver
     Puppeteer: {
       url: environment.baseUrl,
       browser: environment.browser,
-      show: !environment.headless,
+      show: showBrowser,
       windowSize: '1400x950',
       waitForTimeout: 15000,
       waitForAction: 150,
@@ -30,17 +40,35 @@ export const config = {
         defaultViewport: null,
       },
     },
+    // Low-level element actions shared by every page (click, fillField, selectOption...)
+    PageInteractionHelper: {
+      require: './helpers/PageInteractionHelper.js',
+    },
+    // Low-level element validations shared by every page (validateElementExists, ...)
+    PageValidationHelper: {
+      require: './helpers/PageValidationHelper.js',
+    },
+    // Business flows: loginAs, createFlow, navigateTo, fillOutPage, finishFlow, openTransaction...
     PolicyCenterHelper: {
       require: './helpers/PolicyCenterHelper.js',
       environment,
     },
+    // Test data: getAutoGraystoneData, setGraystoneValue...
     GrayStoneHelper: {
       require: './helpers/GrayStoneHelper.js',
     },
   },
   include: {},
   plugins: {
+    // Screenshot of the browser whenever a scenario fails -> output/*.failed.png
     screenshot: { enabled: true, on: 'fail' },
+    // Self-contained HTML execution report -> output/dashboard/index.html
+    htmlDashboard: {
+      enabled: true,
+      require: './plugins/htmlDashboard.js',
+      reportDir: 'output/dashboard',
+      environment,
+    },
   },
   mocha: {},
 };

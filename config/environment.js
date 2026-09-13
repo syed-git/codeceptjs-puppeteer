@@ -42,10 +42,10 @@ export function loadEnvironment() {
   const envConfig = JSON.parse(fs.readFileSync(file, 'utf8'));
 
   return {
+    ...envConfig,
     name,
     browser,
     headless: parseBoolean(process.env.HEADLESS, true),
-    ...envConfig,
   };
 }
 

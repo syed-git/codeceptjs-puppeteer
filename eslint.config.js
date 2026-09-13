@@ -36,7 +36,8 @@ export default [
     },
   },
   {
-    files: ['pages/**/*.js'],
+    // code evaluated inside the browser (page.evaluate callbacks)
+    files: ['pages/**/*.js', 'helpers/PageInteractionHelper.js'],
     languageOptions: {
       globals: { ...globals.browser },
     },

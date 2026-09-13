@@ -1,4 +1,5 @@
 import BasePage from './BasePage.js';
+import { homePage } from '../selectors/index.js';
 import { GlobalData } from '../support/GlobalData.js';
 import { log } from '../support/logger.js';
 import { relativeDate } from '../support/dates.js';
@@ -12,23 +13,8 @@ import { relativeDate } from '../support/dates.js';
 export default class HomePage extends BasePage {
   static pageName = 'Home Page';
 
-  newSubmissionButton = this.button('New Submission');
-  searchInput = '//input[starts-with(@placeholder, "Search by policy number")]';
-  policyRow = (policyNumber) => `//div[contains(@class,"table-row")][.//span[contains(@class,"policy-num")][contains(normalize-space(), "${policyNumber}")]]`;
-  statusChip = (status) => `//button[contains(@class,"chip")][normalize-space()="${status}"]`;
-  noPoliciesMessage = '//h3[normalize-space()="No policies found"]';
-
-  // policy detail
-  policyChangeButton = this.button('Policy Change');
-  cancelPolicyButton = this.button('Cancel Policy');
-  continueSubmissionButton = this.button('Continue Submission');
-  changeEffectiveDateInput = this.fieldInput('Change Effective Date');
-  changeContinueButton = this.button('Continue');
-  policyInfoHeading = this.stepHeading('Policy Information');
-  cancelModalHeading = '//h2[starts-with(normalize-space(), "Cancel Policy")]';
-
   get pageHeading() {
-    return this.dashboardHeading;
+    return homePage.pageHeading;
   }
 
   async fillOutPage(data, ctx = {}) {
@@ -48,8 +34,8 @@ export default class HomePage extends BasePage {
         await this.startPolicyChange(ctx.changeEffectiveDate || GlobalData.getValue('effectiveDate'));
         break;
       case 'Cancellation':
-        await this.click(this.cancelPolicyButton);
-        await this.waitFor(this.cancelModalHeading);
+        await this.ui.click(homePage.cancelPolicyButton);
+        await this.ui.waitForElement(homePage.cancelModalHeading);
         break;
       default:
         await this.startNewSubmission();
@@ -57,41 +43,37 @@ export default class HomePage extends BasePage {
   }
 
   async startNewSubmission() {
-    await this.click(this.newSubmissionButton);
-    await this.waitFor(this.policyInfoHeading);
-    GlobalData.setCurrentPage('Policy Info');
+    await this.ui.click(homePage.newSubmissionButton);
+    await this.ui.waitForElement(homePage.policyInfoHeading);
     log.info('new submission initiated');
   }
 
   /** Searches the dashboard for a policy / submission number and opens it. */
   async openPolicy(policyNumber) {
     await this.waitForPage();
-    await this.fill(this.searchInput, policyNumber);
-    await this.waitFor(this.policyRow(policyNumber));
-    await this.click(this.policyRow(policyNumber));
-    // policy detail shows the number in the <h1>, the wizard (UW Review/Approved/Rejected) in the sub-heading
-    await this.waitFor(`//*[self::h1 or self::p][contains(normalize-space(), "${policyNumber}")]`);
-    log.info(`opened policy ${policyNumber}`);
+    await this.ui.fillField(homePage.searchInput, policyNumber);
+    await this.verify.validateElementPresent(homePage.policyRow(policyNumber), `transaction ${policyNumber} not found on the dashboard`);
+    await this.ui.click(homePage.policyRow(policyNumber));
+    await this.ui.waitForElement(homePage.openedTransactionHeading(policyNumber));
+    log.info(`opened ${policyNumber}`);
   }
 
-  /** Whether opening the policy landed in the wizard (UW Review/Approved/Rejected) or on the detail page. */
+  /** Whether opening the policy landed on the detail page (vs. the wizard for UW Review/Approved/Rejected). */
   async isOnPolicyDetail() {
-    return this.isVisible('//h3[contains(normalize-space(), "Transaction History")]', 1500);
+    return this.ui.isElementVisible(homePage.transactionHistoryHeading, 1500);
   }
 
   async startPolicyChange(effectiveDate) {
-    await this.click(this.policyChangeButton);
-    await this.waitFor(this.changeEffectiveDateInput);
-    await this.fillDate(this.changeEffectiveDateInput, effectiveDate || relativeDate(1));
-    await this.click(this.changeContinueButton);
-    await this.waitFor(this.policyInfoHeading);
-    GlobalData.setCurrentPage('Policy Info');
-    log.info(`policy change initiated effective ${effectiveDate || relativeDate(1)}`);
+    const date = effectiveDate || relativeDate(1);
+    await this.ui.click(homePage.policyChangeButton);
+    await this.ui.fillDateField(homePage.changeEffectiveDateInput, date);
+    await this.ui.click(homePage.changeContinueButton);
+    await this.ui.waitForElement(homePage.policyInfoHeading);
+    log.info(`policy change initiated effective ${date}`);
   }
 
   async grabPolicyStatus(policyNumber) {
-    await this.fill(this.searchInput, policyNumber);
-    await this.waitFor(this.policyRow(policyNumber));
-    return this.grabText(`${this.policyRow(policyNumber)}//span[contains(@class,"badge")]`);
+    await this.ui.fillField(homePage.searchInput, policyNumber);
+    return this.ui.grabTextFrom(homePage.policyRowStatus(policyNumber));
   }
 }

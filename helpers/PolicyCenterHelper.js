@@ -14,16 +14,31 @@ const ROLE_ALIASES = {
 };
 
 /**
- * Flow-level actions exposed on `I`:
+ * Business-flow actions exposed on `I`. A flow is an ordered list of pages
+ * (flows/flows.js); every page knows how to fill itself and how to move on.
  *
  *   await I.loginAs('accountExecutive');
- *   await I.executeFlow('New Submission');            // Home Page -> ... -> View Policy
- *   await I.createFlow('Policy Change');              // Home Page step only, lands on Policy Info
- *   await I.navigateTo('Drivers');                    // fills every page before Drivers, lands on Drivers
- *   await I.fillOutCurrentPage();                     // fills Drivers, stays
- *   await I.finishFlow();                             // fills the remaining pages to the end
+ *   await I.executeFlow('New Submission');      // createFlow + finishFlow
  *
- * Pages are driven through the page classes in ./pages, which locate elements with Puppeteer.
+ *   await I.createFlow('New Submission');       // Home Page step, lands on Policy Info
+ *   await I.navigateTo('Coverages');            // fills Policy Info, Drivers, Vehicles; lands on Coverages
+ *   await I.fillOutPage();                      // fills Coverages, stays there
+ *   await I.clickOnNext();                      // -> Quote
+ *   await I.navigateToPage('Review');           // clicks Next through Quote and Risk Analysis without filling
+ *   await I.finishFlow();                       // fills the remaining pages up to View Policy
+ *
+ * Underwriting is orchestrated explicitly by the test - the flow never logs in or out by itself:
+ *
+ *   await I.createFlow('New Submission');
+ *   await I.navigateTo('Risk Analysis');
+ *   await I.fillOutPage();                      // submits for approval when blocking issues exist
+ *   await I.logout();
+ *   await I.loginAs('underwriter');
+ *   await I.openTransaction();                  // opens the submission stored for the flow
+ *   await I.approveAllIssues();
+ *   await I.logout();
+ *   await I.loginAs('accountExecutive');
+ *   await I.finishFlow();                       // reopens the submission and issues it
  */
 class PolicyCenterHelper extends Helper {
   constructor(config) {
@@ -52,12 +67,6 @@ class PolicyCenterHelper extends Helper {
     return this.helpers.Puppeteer;
   }
 
-  get page() {
-    const { page } = this.puppeteer;
-    if (!page) throw new Error('Browser page is not available yet. Is the Puppeteer helper enabled?');
-    return page;
-  }
-
   get flowPages() {
     if (!this.flowName) {
       throw new Error("No active flow. Call I.createFlow('New Submission') or I.executeFlow(...) first.");
@@ -65,6 +74,11 @@ class PolicyCenterHelper extends Helper {
     return FLOWS[this.flowName];
   }
 
+  get currentPageName() {
+    return this.flowPages[this.pageIndex];
+  }
+
+  /** Context handed to every page: flow name, logged-in role, environment and the createFlow options. */
   get ctx() {
     return {
       flowName: this.flowName,
@@ -76,12 +90,12 @@ class PolicyCenterHelper extends Helper {
 
   _pageObject(pageName) {
     const PageClass = getPageClass(pageName);
-    return new PageClass(this.page, this.puppeteer.options.waitForTimeout);
+    return new PageClass();
   }
 
   _setPageIndex(index) {
-    this.pageIndex = index;
-    GlobalData.setCurrentPage(this.flowPages[index] || '');
+    this.pageIndex = Math.min(Math.max(index, 0), this.flowPages.length - 1);
+    GlobalData.setCurrentPage(this.flowPages[this.pageIndex]);
   }
 
   _resolveRole(role) {
@@ -97,7 +111,14 @@ class PolicyCenterHelper extends Helper {
     return GlobalData.getData();
   }
 
-  /** Runs one page of the active flow: wait -> fill -> (UW approval) -> continue. */
+  _requireLogin() {
+    if (!this.currentRole) throw new Error("Nobody is logged in. Call I.loginAs('accountExecutive') first.");
+  }
+
+  /**
+   * Runs one page of the active flow: wait -> fill -> remember transaction number -> continue.
+   * With `fill: false` the page is only waited for; with `continueToNext: false` the user stays on it.
+   */
   async _runPage(index, { fill = true, continueToNext = true } = {}) {
     const pageName = this.flowPages[index];
     const pageObj = this._pageObject(pageName);
@@ -106,36 +127,56 @@ class PolicyCenterHelper extends Helper {
     if (fill) await pageObj.fillOutPage(this._data(), this.ctx);
     else await pageObj.waitForPage();
 
-    if (
-      pageObj instanceof RiskAnalysisPage &&
-      this.flowOptions.autoApproveUnderwritingIssues !== false &&
-      this.currentRole !== 'underwriter' &&
-      (await pageObj.needsUnderwriterApproval())
-    ) {
-      await this.approveUnderwritingIssues();
-    }
-
     await this._captureTransactionNumber(pageObj);
     if (!continueToNext) return;
 
+    if (pageObj instanceof RiskAnalysisPage && (await pageObj.hasBlockingIssues())) {
+      throw new Error(
+        `[Risk Analysis] Blocking underwriting issues need an underwriter. Use I.fillOutPage() (submits for approval), ` +
+          `then I.logout() / I.loginAs('underwriter') / I.openTransaction() / I.approveAllIssues() and finish the flow as the account executive.`,
+      );
+    }
+
     await pageObj.clickOnNext(this.ctx);
-    this._setPageIndex(Math.min(index + 1, this.flowPages.length - 1));
+    this._setPageIndex(index + 1);
   }
 
   async _captureTransactionNumber(pageObj) {
     const number = await pageObj.grabTransactionNumber();
-    if (number && !GlobalData.getSubmissionNumber()) GlobalData.setSubmissionNumber(number);
+    if (number) GlobalData.setTransactionNumber(this.flowName, number);
   }
 
+  /** Index of `destination` in the active flow; navigation only moves forward. */
   _destinationIndex(destination) {
     const pageName = resolvePageName(this.flowName, destination);
     const index = this.flowPages.indexOf(pageName);
     if (index < this.pageIndex) {
       throw new Error(
-        `Cannot navigate backwards from '${this.flowPages[this.pageIndex]}' to '${pageName}'. Flow order: ${this.flowPages.join(' -> ')}`,
+        `Cannot navigate backwards from '${this.currentPageName}' to '${pageName}'. Flow order: ${this.flowPages.join(' -> ')}`,
       );
     }
     return index;
+  }
+
+  /** Looks at the browser and returns the index of the flow page currently displayed (-1 when none is). */
+  async _detectPageIndex() {
+    for (let i = 0; i < this.flowPages.length; i++) {
+      if (await this._pageObject(this.flowPages[i]).isDisplayed(0)) return i;
+    }
+    return -1;
+  }
+
+  /** Aligns the internal page pointer with what the browser shows; returns the detected page name. */
+  async _syncWithBrowser() {
+    const index = await this._detectPageIndex();
+    if (index === -1) {
+      throw new Error(
+        `Cannot tell which page of '${this.flowName}' is displayed. Expected one of: ${this.flowPages.join(', ')}. ` +
+          `Are you logged in? Use I.openTransaction() to reopen the transaction.`,
+      );
+    }
+    this._setPageIndex(index);
+    return this.currentPageName;
   }
 
   /* ------------------------------------------------------------------ */
@@ -145,11 +186,14 @@ class PolicyCenterHelper extends Helper {
   /**
    * Logs in as a configured role from config/env/<ENV>.json.
    *   await I.loginAs('accountExecutive');   // or 'underwriter', 'AE', 'UW'
+   * Logs the current user out first when somebody is still signed in.
    */
   async loginAs(role = 'accountExecutive') {
     const user = this._resolveRole(role);
-    const loginPage = new LoginPage(this.page);
-    if (!(await loginPage.isVisible(loginPage.pageHeading, 1000))) {
+    const loginPage = new LoginPage();
+    if (await loginPage.isLoggedIn()) {
+      await loginPage.logout();
+    } else if (!(await loginPage.isDisplayed(1000))) {
       await this.puppeteer.amOnPage('/');
     }
     await loginPage.login(user.username, user.password);
@@ -157,9 +201,13 @@ class PolicyCenterHelper extends Helper {
   }
 
   async logout() {
-    const loginPage = new LoginPage(this.page);
+    const loginPage = new LoginPage();
     await loginPage.logout();
     this.currentRole = null;
+  }
+
+  async grabCurrentRole() {
+    return this.currentRole;
   }
 
   /* ------------------------------------------------------------------ */
@@ -167,7 +215,7 @@ class PolicyCenterHelper extends Helper {
   /* ------------------------------------------------------------------ */
 
   /**
-   * Runs the whole flow: every page's fillOutPageAndContinue in order.
+   * Runs the whole flow: every page is filled out and continued, from Home Page to View Policy.
    *   await I.executeFlow('New Submission');
    *   await I.executeFlow('Cancellation', { policyNumber: 'PA-100234' });
    */
@@ -177,14 +225,13 @@ class PolicyCenterHelper extends Helper {
   }
 
   /**
-   * Starts the flow (Home Page step only) and leaves the user on the first wizard page.
+   * Starts the flow: fills out the Home Page step and leaves the user on the first wizard page.
    * Options:
-   *   policyNumber                  - policy to open for Policy Change / Cancellation (defaults to the last issued one)
-   *   changeEffectiveDate           - Policy Change effective date (defaults to data.effectiveDate)
-   *   autoApproveUnderwritingIssues - run the underwriter approval round-trip when blocked (default true)
+   *   policyNumber         - policy to open for Policy Change / Cancellation (default: last issued one)
+   *   changeEffectiveDate  - Policy Change effective date (default: data.effectiveDate)
    */
   async createFlow(flowName, options = {}) {
-    if (!this.currentRole) throw new Error("Nobody is logged in. Call I.loginAs('accountExecutive') first.");
+    this._requireLogin();
     this.flowName = resolveFlowName(flowName);
     this.flowOptions = options;
     GlobalData.setCurrentFlow(this.flowName);
@@ -193,8 +240,21 @@ class PolicyCenterHelper extends Helper {
     await this._runPage(0);
   }
 
-  /** Fills out every remaining page of the active flow, including the last one. */
+  /**
+   * Derives the page currently displayed and fills out every page from there to the end of the flow.
+   * When the user is on the dashboard (e.g. after logging back in) the flow's transaction is reopened first.
+   */
   async finishFlow() {
+    this._requireLogin();
+    let index = await this._detectPageIndex();
+    if (index <= 0 && this.pageIndex > 0) {
+      await this.openTransaction();
+      index = await this._detectPageIndex();
+    }
+    if (index === -1) await this._syncWithBrowser();
+    else this._setPageIndex(index);
+    log.section(`Finishing flow '${this.flowName}' from '${this.currentPageName}'`);
+
     const last = this.flowPages.length - 1;
     while (this.pageIndex < last) {
       await this._runPage(this.pageIndex);
@@ -204,7 +264,7 @@ class PolicyCenterHelper extends Helper {
   }
 
   /**
-   * Navigator: fills out every page before `destination` and lands on it (destination is not filled).
+   * Fills out every page before `destination` and lands on it (destination itself is not filled).
    *   await I.navigateTo('Coverages');
    */
   async navigateTo(destination) {
@@ -212,70 +272,96 @@ class PolicyCenterHelper extends Helper {
     while (this.pageIndex < target) {
       await this._runPage(this.pageIndex);
     }
-    await this._pageObject(this.flowPages[this.pageIndex]).waitForPage();
+    await this._pageObject(this.currentPageName).waitForPage();
   }
 
-  /** Clicks through to `destination` without filling anything (pages already hold data, e.g. Policy Change). */
-  async clickNextTo(destination) {
+  /**
+   * Clicks Next on every page until `destination` is displayed - nothing is filled
+   * (useful for Policy Change where the pages already hold the policy data).
+   *   await I.navigateToPage('Coverages');
+   */
+  async navigateToPage(destination) {
     const target = this._destinationIndex(destination);
     while (this.pageIndex < target) {
       await this._runPage(this.pageIndex, { fill: false });
     }
-    await this._pageObject(this.flowPages[this.pageIndex]).waitForPage();
+    await this._pageObject(this.currentPageName).waitForPage();
   }
 
-  /** Fills the current page and stays on it. */
-  async fillOutCurrentPage() {
+  /**
+   * Fills out the current page and stays on it. On Risk Analysis this submits the
+   * transaction for underwriter approval when blocking issues exist.
+   */
+  async fillOutPage() {
     await this._runPage(this.pageIndex, { continueToNext: false });
   }
 
-  /** Fills the current page and moves to the next one. */
+  /** Fills out the current page and moves to the next one. */
   async fillOutPageAndContinue() {
     await this._runPage(this.pageIndex);
   }
 
-  /** Clicks the current page's Next/Continue button without filling. */
+  /** Clicks the current page's Next/Continue button without filling anything. */
   async clickOnNext() {
     await this._runPage(this.pageIndex, { fill: false });
   }
 
-  /**
-   * Underwriter approval round-trip for blocking underwriting issues:
-   * logs out, approves everything as the underwriter, logs back in as the original
-   * role and reopens the submission on the Risk Analysis page.
-   */
-  async approveUnderwritingIssues() {
-    const submissionNumber = GlobalData.getSubmissionNumber();
-    if (!submissionNumber) throw new Error('Submission number is unknown; cannot route it to the underwriter.');
-    const originalRole = this.currentRole || 'accountExecutive';
+  /** @deprecated use navigateToPage() */
+  async clickNextTo(destination) {
+    await this.navigateToPage(destination);
+  }
 
-    log.section(`Routing ${submissionNumber} to the underwriter for approval`);
-    await this.logout();
-    await this.loginAs('underwriter');
-    await this.openTransaction(submissionNumber);
-    const riskPage = new RiskAnalysisPage(this.page);
+  /** @deprecated use fillOutPage() */
+  async fillOutCurrentPage() {
+    await this.fillOutPage();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Transactions & underwriting                                          */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Searches the dashboard for a transaction and opens it. Without an argument the number stored
+   * for the active flow is used (New Submission -> submission number, Policy Change -> policy number).
+   * Submissions in UW Review / Approved / Rejected open in the wizard, everything else on the policy page.
+   * Returns the transaction number that was opened.
+   */
+  async openTransaction(number) {
+    this._requireLogin();
+    const target = number || (this.flowName ? GlobalData.getTransactionNumber(this.flowName) : GlobalData.getPolicyNumber());
+    if (!target) throw new Error('No transaction number is known yet. Pass one explicitly: I.openTransaction("PA-1000001").');
+
+    const homePage = new HomePage();
+    await homePage.goToDashboard();
+    await homePage.openPolicy(target);
+
+    if (this.flowName) {
+      const index = await this._detectPageIndex();
+      if (index > 0) this._setPageIndex(index);
+    } else if (await homePage.isOnPolicyDetail()) {
+      GlobalData.setCurrentPage('View Policy');
+    }
+    return target;
+  }
+
+  /** Transaction number of the active flow (submission number for New Submission, policy number otherwise). */
+  async grabTransactionNumber() {
+    return this.flowName ? GlobalData.getTransactionNumber(this.flowName) : GlobalData.getPolicyNumber() || GlobalData.getSubmissionNumber();
+  }
+
+  /** Underwriter: approves every blocking issue on the Risk Analysis page that is currently open. */
+  async approveAllIssues() {
+    const riskPage = new RiskAnalysisPage();
     await riskPage.waitForPage();
     await riskPage.approveAllIssues();
-
-    await this.logout();
-    await this.loginAs(originalRole);
-    await this.openTransaction(submissionNumber);
-    await riskPage.waitForPage();
     if (this.flowName) this._setPageIndex(this.flowPages.indexOf('Risk Analysis'));
   }
 
-  /**
-   * Opens a policy / submission from the dashboard. Submissions in UW Review, Approved or
-   * Rejected open in the wizard (Risk Analysis); everything else opens the policy detail page.
-   */
-  async openTransaction(number) {
-    const target = number || GlobalData.getPolicyNumber() || GlobalData.getSubmissionNumber();
-    const homePage = new HomePage(this.page);
-    await homePage.openPolicy(target);
-    if (await homePage.isOnPolicyDetail()) {
-      if (this.flowName) this._setPageIndex(this.flowPages.indexOf('View Policy'));
-      else GlobalData.setCurrentPage('View Policy');
-    }
+  /** Underwriter: rejects the submission that is open on the Risk Analysis page. */
+  async rejectSubmission() {
+    const riskPage = new RiskAnalysisPage();
+    await riskPage.waitForPage();
+    await riskPage.rejectSubmission();
   }
 
   /* ------------------------------------------------------------------ */
@@ -283,13 +369,14 @@ class PolicyCenterHelper extends Helper {
   /* ------------------------------------------------------------------ */
 
   /**
-   * Returns the page helper for ad-hoc actions:
+   * Returns the page class instance for ad-hoc actions:
    *   const drivers = await I.usePage('Drivers');
    *   await drivers.removeDriver('John Wick');
    */
   async usePage(pageName) {
     const known = Object.values(FLOWS).flat();
-    const resolved = known.find((p) => p.replace(/\s/g, '').toLowerCase() === String(pageName).replace(/\s/g, '').toLowerCase()) || pageName;
+    const normalize = (s) => String(s).replace(/\s/g, '').toLowerCase();
+    const resolved = known.find((p) => normalize(p) === normalize(pageName)) || pageName;
     return this._pageObject(resolved);
   }
 
