@@ -45,6 +45,7 @@ jobs:
       - run: npm ci
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
+      - run: npx puppeteer browsers install chrome
       # codeceptjs dry-run loads the config, helpers, plugins and every *_test.js without a browser,
       # then the node:test unit tests cover the data generator, flows and dashboard renderer.
       - run: npm run test:build
@@ -62,6 +63,7 @@ jobs:
       - run: npm ci
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
+      - run: npx puppeteer browsers install chrome
       # codeceptjs dry-run loads the config, helpers, plugins and every *_test.js without a browser,
       # then the node:test unit tests cover the data generator, flows and dashboard renderer.
       - run: npm run test:smoke
