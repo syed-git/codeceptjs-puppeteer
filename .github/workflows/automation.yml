@@ -1,0 +1,28 @@
+name: Automation Tests
+
+on:
+  schedule:
+  # Run every day at 6:00 PM Central Time
+  - cron: '0 18 * * *'
+    timezone: "America/Chicago"
+
+  # Allows you to run it manually from Github
+  workflow_dispatch:
+
+jobs:
+  automation:
+    name: Personal Auto Automation Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+      - run: npx puppeteer browsers install chrome
+      # codeceptjs dry-run loads the config, helpers, plugins and every *_test.js without a browser,
+      # then the node:test unit tests cover the data generator, flows and dashboard renderer.
+      - run: npm run test
