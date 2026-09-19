@@ -1,4 +1,4 @@
-name: Automation Tests
+name: Codecept Puppeteer Tests
 
 on:
   schedule:
@@ -10,8 +10,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  automation:
-    name: Personal Auto Automation Tests
+  tests-chrome:
+    name: Run all tests in chrome
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,3 +26,21 @@ jobs:
       # codeceptjs dry-run loads the config, helpers, plugins and every *_test.js without a browser,
       # then the node:test unit tests cover the data generator, flows and dashboard renderer.
       - run: npm run test
+
+  tests-firefox:
+    name: Run all tests in firefox
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+          BROWSER: 'firefox'
+      - run: npm run install:firefox
+      # codeceptjs dry-run loads the config, helpers, plugins and every *_test.js without a browser,
+      # then the node:test unit tests cover the data generator, flows and dashboard renderer.
+      - run: npm run test:firefox
