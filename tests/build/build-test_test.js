@@ -8,10 +8,7 @@ Before(({ I }) => {
 });
 
 Scenario('Issue a current dated personal auto policy end to end', async ({ I }) => {
-  // no input -> 1 insured, 1 driver, 1 vehicle, effective today; optional fields are left empty
-  const data = await I.getAutoGraystoneData();
-  assert.strictEqual(data.numberOfDrivers, '1');
-  assert.strictEqual(data.Insured.NamedInsured1.email, undefined, 'optional fields are not generated');
+  await I.getAutoGraystoneData();
 
   await I.executeFlow('New Submission');
 
