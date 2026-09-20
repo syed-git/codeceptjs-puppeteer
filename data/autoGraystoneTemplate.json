@@ -1,10 +1,11 @@
 {
-  "_comment": "Reference AutoGraystone data set. Every key is shown; the ones under _optional are only filled when you provide them (they are never generated). Without input the flows use 1 insured, 1 driver, 1 vehicle and today's effective date.",
+  "_comment": "Reference AutoGraystone data set as returned by POST /getAutoGraystoneData (github.com/syed-git/auto-graystone-data). Every key is shown; the ones under _optional are only returned when you provide them (they are never generated). Without input the API returns 1 insured, 1 driver, 1 vehicle, today's effective date and the default coverages bodilyInjuryLiability 50k/100k, propertyDamageLiability 50k, collision $250 ded.",
   "_optional": {
     "Insured": ["email", "phone", "address", "city", "state", "zip"],
     "Drivers": ["licenseState", "yearsLicensed", "accidents", "violations", "relationshipToInsured", "licenseFile"],
     "Vehicles": ["usage", "annualMileage", "costNew", "primaryDriver"],
-    "Coverages": ["uninsuredMotorist", "medicalPayments", "comprehensive", "collision", "rentalReimbursement", "roadSideAssitance"]
+    "Coverages": ["uninsuredMotorist", "medicalPayments", "comprehensive", "rentalReimbursement", "roadSideAssitance"],
+    "Cancellation": ["type", "effectiveDate", "reason"]
   },
   "effectiveDate": "09-20-2026",
   "numberOfInsured": "1",
@@ -44,7 +45,7 @@
       "year": "2020",
       "make": "Toyota",
       "model": "Camry",
-      "vin": "VIN376683HJGDJSH",
+      "vin": "VIN376683HJGDJS",
       "ownership": "Owned",
       "usage": "Commute",
       "annualMileage": "12000",

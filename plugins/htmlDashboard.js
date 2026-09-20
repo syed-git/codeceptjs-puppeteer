@@ -128,6 +128,7 @@ function buildReport(result, live, { environment, startedAt, reportDir }) {
     environment: {
       name: environment.name || process.env.ENV || '',
       baseUrl: environment.baseUrl || puppeteer?.options?.url || '',
+      dataApiUrl: environment.dataApiUrl || process.env.DATA_API_URL || '',
       browser: environment.browser || puppeteer?.options?.browser || '',
       headless: environment.headless === undefined ? '' : String(environment.headless),
       node: process.version,

@@ -10,6 +10,7 @@
  *   npm test -- --headed                         -> HEADLESS=false (browser window is shown)
  *   npm test -- --headless                       -> HEADLESS=true
  *   npm test -- --env uat2 --browser firefox     -> ENV=uat2 BROWSER=firefox
+ *   npm test -- --data-api http://localhost:4000 -> DATA_API_URL=... (auto-graystone-data service)
  *   npm test -- --workers 3                      -> codeceptjs run-workers 3 (parallel)
  *
  * Anything else (--grep, --debug, --verbose, a test file...) is passed straight to CodeceptJS.
@@ -46,6 +47,8 @@ for (let i = 0; i < args.length; i++) {
   else if (arg.startsWith('--env=')) env.ENV = arg.slice('--env='.length);
   else if (arg === '--browser') env.BROWSER = next();
   else if (arg.startsWith('--browser=')) env.BROWSER = arg.slice('--browser='.length);
+  else if (arg === '--data-api') env.DATA_API_URL = next();
+  else if (arg.startsWith('--data-api=')) env.DATA_API_URL = arg.slice('--data-api='.length);
   else if (arg === '--workers') workers = Number(next());
   else passThrough.push(arg);
 }
@@ -56,7 +59,7 @@ codeceptArgs.push(...passThrough);
 
 const headless = !/^(false|0|no|n)$/i.test(String(env.HEADLESS ?? 'true').trim());
 console.log(
-  `\nPolicyCenter tests  |  ENV=${env.ENV || 'uat1'}  BROWSER=${env.BROWSER || 'chrome'}  HEADLESS=${headless} (${headless ? 'browser hidden' : 'browser window visible'})`,
+  `\nPolicyCenter tests  |  ENV=${env.ENV || 'uat1'}  BROWSER=${env.BROWSER || 'chrome'}  HEADLESS=${headless} (${headless ? 'browser hidden' : 'browser window visible'})${env.DATA_API_URL ? `  DATA_API_URL=${env.DATA_API_URL}` : ''}`,
 );
 console.log(`> codeceptjs ${codeceptArgs.join(' ')}\n`);
 
