@@ -4,9 +4,10 @@ import { environment } from './config/environment.js';
  * CodeceptJS configuration. Runtime switches come from the environment
  * (see config/environment.js and scripts/run.js):
  *
- *   ENV=uat2        -> config/env/uat2.json (base URL + users)
+ *   ENV=uat2        -> config/env/uat2.json (base URL, data API URL, users)
  *   BROWSER=firefox -> chrome (default) | firefox
  *   HEADLESS=false  -> shows the browser window (Puppeteer `show: true`)
+ *   DATA_API_URL    -> overrides the auto-graystone-data service URL of the environment file
  */
 const launchArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1400,950'];
 const showBrowser = !environment.headless;
@@ -53,9 +54,12 @@ export const config = {
       require: './helpers/PolicyCenterHelper.js',
       environment,
     },
-    // Test data: getAutoGraystoneData, setGraystoneValue...
+    // Test data: getAutoGraystoneData (POST <environment.dataApiUrl>/getAutoGraystoneData), setGraystoneValue...
     GrayStoneHelper: {
       require: './helpers/GrayStoneHelper.js',
+      environment,
+      timeout: 30000,
+      retries: 2,
     },
   },
   include: {},

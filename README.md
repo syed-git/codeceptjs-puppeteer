@@ -11,7 +11,7 @@ pages/*Page.js              one class per PolicyCenter page  (fillOutPage / clic
 selectors/*Page.js          one file per page with its locators
 helpers/PageInteraction...  click, fillField, selectOption, checkCheckbox, ... (used by every page)
 helpers/PageValidation...   validateElementExists, validateElementContains, ...  (used by every page)
-helpers/GrayStoneHelper     test data: I.getAutoGraystoneData(partialJson)
+helpers/GrayStoneHelper     test data: I.getAutoGraystoneData(partialJson)  ->  POST auto-graystone-data /getAutoGraystoneData
 plugins/htmlDashboard.js    HTML execution dashboard -> output/dashboard/index.html
 ```
 
@@ -22,10 +22,19 @@ npm install
 npm run install:firefox   # optional, only if you want BROWSER=firefox
 ```
 
+Test data is served by the [auto-graystone-data](https://github.com/syed-git/auto-graystone-data) REST API.
+`uat1` points at the Render deployment (`https://auto-graystone-data.onrender.com`), `uat2` at a local instance
+(`http://localhost:4000`). To run it locally:
+
+```bash
+git clone https://github.com/syed-git/auto-graystone-data.git
+cd auto-graystone-data && npm install && npm start     # -> http://localhost:4000/getAutoGraystoneData
+```
+
 ## Running tests
 
 All commands go through `npm test` (= `node scripts/run.js`), which understands `--tags`, `--headed`, `--env`,
-`--browser` and `--workers` and forwards everything else to `codeceptjs run --steps`.
+`--browser`, `--data-api` and `--workers` and forwards everything else to `codeceptjs run --steps`.
 
 | Setting  | Env variable | CLI flag                  | Values                | Default  |
 | -------- | ------------ | ------------------------- | --------------------- | -------- |
@@ -33,6 +42,7 @@ All commands go through `npm test` (= `node scripts/run.js`), which understands 
 | Browser  | `BROWSER`    | `--browser firefox`       | `chrome`, `firefox`   | `chrome` |
 | Headless | `HEADLESS`   | `--headed` / `--headless` | `true`, `false`       | `true`   |
 | Tags     | -            | `--tags "@smoke"`         | any tag in a title    | all      |
+| Data API | `DATA_API_URL` | `--data-api <url>`      | auto-graystone-data service URL | `dataApiUrl` of the env file |
 
 ```powershell
 # PowerShell
@@ -61,8 +71,17 @@ with `unknown option '--tags'` before the browser ever started. `scripts/run.js`
 
 ### Environments
 
-Each environment is a JSON file in `config/env/` (`uat1.json`, `uat2.json`, ...) holding the base URL and user
-credentials (`accountExecutive`, `underwriter`). Add a new file and select it with `ENV=<name>`.
+Each environment is a JSON file in `config/env/` (`uat1.json`, `uat2.json`, ...) holding the PolicyCenter base URL
+(`baseUrl`), the auto-graystone-data service URL (`dataApiUrl`, overridable with `DATA_API_URL` / `--data-api`) and
+user credentials (`accountExecutive`, `underwriter`). Add a new file and select it with `ENV=<name>`.
+
+```json
+{
+  "baseUrl": "https://personal-auto-policy-center.onrender.com/",
+  "dataApiUrl": "https://auto-graystone-data.onrender.com",
+  "users": { "accountExecutive": { "username": "aexec", "password": "gw123" }, "underwriter": { "username": "uwriter", "password": "gw123" } }
+}
+```
 
 ### Tags
 
@@ -169,31 +188,48 @@ register it in `pages/index.js` and add it to a flow in `flows/flows.js`.
 
 ## GrayStone test data
 
-`I.getAutoGraystoneData(partial)` builds the data set used by the pages, stores it for the current test and returns it.
-
-* **No input** → `numberOfInsured`, `numberOfDrivers`, `numberOfVehicles` = `1`, `effectiveDate` = today.
-* **Required fields** (names, date of birth, gender, license number, VIN, year/make/model/ownership, liability
-  coverages) are generated with valid random values when missing.
-* **Optional fields are never generated** - they are used only if you pass them:
-  `email, phone, address, city, state, zip` (insured), `licenseState, yearsLicensed, accidents, violations,
-  relationshipToInsured` (driver), `usage, annualMileage, costNew, primaryDriver` (vehicle),
-  `uninsuredMotorist, medicalPayments, comprehensive, collision, rentalReimbursement, roadSideAssitance` (coverages).
-* `isPrimaryInsured` is `true` for `NamedInsured1` only.
-* Counts drive how many `Insured.NamedInsuredN`, `Drivers.DriverN`, `Vehicles.VehicleN` records exist (or the
-  number of records you supplied); `primaryDriver: "2"` resolves to `Driver2`.
+`await I.getAutoGraystoneData(partial)` POSTs `partial` to the **auto-graystone-data** REST API
+(`<dataApiUrl>/getAutoGraystoneData`, see [syed-git/auto-graystone-data](https://github.com/syed-git/auto-graystone-data)),
+stores the completed data set for the current test (the pages read it from there) and returns it.
 
 ```js
 const data = await I.getAutoGraystoneData({
   effectiveDate: '09-20-2026',
   numberOfDrivers: '2',
   Drivers: { Driver1: { firstName: 'John', lastName: 'Wick', accidents: '2' } },
-  Coverages: { collision: '250' },          // normalised to "$250 ded"
+  Coverages: { collision: '250' },          // normalised by the Coverages page to "$250 ded"
 });
+// data.Drivers.Driver2 was generated, data.Insured.NamedInsured1 / data.Vehicles.Vehicle1 too
 ```
 
+What the API returns (the same rules apply when you call it with curl):
+
+* **No input** → `numberOfInsured`, `numberOfDrivers`, `numberOfVehicles` = `"1"`, `effectiveDate` = today (`MM-DD-YYYY`).
+* **Required fields** are kept when you send them and generated with valid random values otherwise: names,
+  date of birth, gender, 10-digit license number, `VIN` + 12 upper-case alphanumerics, year/make/model,
+  `ownership` (`Owned` / `Leased` / `Rented`).
+* **Optional fields are never generated** - they are returned only if you send them:
+  `email, phone, address, city, state, zip` (insured), `licenseState, yearsLicensed, accidents, violations`
+  (driver), `usage, annualMileage, costNew, primaryDriver` (vehicle), `uninsuredMotorist, medicalPayments,
+  comprehensive, rentalReimbursement, roadSideAssitance` (coverages), the whole `Cancellation` object.
+* **Defaults**: `relationshipToInsured` = `Insured`; `Coverages.bodilyInjuryLiability` = `50k/100k`,
+  `propertyDamageLiability` = `50k`, `collision` = `$250 ded`.
+* `isPrimaryInsured` is `"true"` for `NamedInsured1` and `"false"` for every other insured, whatever you send.
+* Counts drive how many `Insured.NamedInsuredN`, `Drivers.DriverN`, `Vehicles.VehicleN` records exist (default: the
+  number of records you supplied, else 1); `primaryDriver: "2"` resolves to `Driver2`.
+* Values you send are validated (dates, option lists, numeric fields, VIN format, counts 1-10...). Invalid input
+  makes `I.getAutoGraystoneData` throw a `GraystoneApiError` whose message lists every problem, e.g.
+  `AutoGraystone data API answered 400 - Invalid request body (Vehicles.Vehicle1.vin: "123" must be 15-17 alphanumeric characters starting with VIN)`.
+  An unreachable service or a 5xx answer is retried (Render free instances take ~30 s to wake up) and then
+  reported with the URL that was called.
+
 Every supported key with sample values: `data/autoGraystoneTemplate.json`. Other helpers: `grabAutoGraystoneData()`,
-`grabAutoGraystoneTemplate()`, `setGraystoneValue(path, value)`, `grabGraystoneValue(path)`,
-`setGraystoneRelativeDate(path, days)`.
+`grabAutoGraystoneTemplate()`, `setGraystoneValue(path, value)` / `setGraystoneRelativeDate(path, days)` (values set
+before `getAutoGraystoneData` are sent along with the input), `grabGraystoneValue(path)`.
+`getAutoGraystoneData(partial, { store: false })` fetches without touching the current test data.
+
+Helper configuration (`codecept.conf.js`): `environment` (provides `dataApiUrl`), `timeout` (ms per request,
+default 30000) and `retries` (default 2).
 
 ## HTML dashboard and screenshots
 
@@ -211,29 +247,29 @@ output/*.failed.png             screenshots taken by the CodeceptJS screenshot p
 `.github/workflows/ci.yml` runs on every push to `main` and every pull request, in three dependent stages:
 
 1. **ESLint** - `npm run lint`
-2. **Build tests** - `npm run test:build` (`codeceptjs dry-run` loads config, helpers, plugins and every test
-   without a browser, then `node --test unit/` runs the unit tests for the data generator, flows and dashboard)
-3. **Smoke tests** - starts the PolicyCenter replica (`syed-git/personal-auto-policy-center`, port 3000 = `uat2`)
-   and runs `npm run test:smoke` headless. The dashboard and screenshots are uploaded as the `smoke-test-report`
-   artifact.
+2. **Build tests** - `npm run test:unit` (node:test unit tests for the data API client / GrayStoneHelper, flows
+   and dashboard), then starts a local auto-graystone-data service (`DATA_API_URL=http://localhost:4000`) and runs
+   `npm run test:build` headless.
+3. **Smoke tests** - same local data service, `npm run test:smoke` headless.
 
-Run the same checks locally: `npm run lint && npm run test:build && ENV=uat2 npm run test:smoke`.
+Run the same checks locally: `npm run lint && npm run test:unit && npm run test:build && npm run test:smoke`
+(with the data API running locally: `ENV=uat2` or `--data-api http://localhost:4000`).
 
 ## Layout
 
 ```
 .github/workflows/ci.yml   eslint -> build tests -> smoke tests
 codecept.conf.js           CodeceptJS config (Puppeteer + helpers + plugins)
-config/environment.js      ENV / BROWSER / HEADLESS resolution
-config/env/*.json          per-environment URLs and users
+config/environment.js      ENV / BROWSER / HEADLESS / DATA_API_URL resolution
+config/env/*.json          per-environment URLs (PolicyCenter, data API) and users
 data/                      autoGraystoneTemplate.json (reference data set)
 flows/flows.js             flow -> ordered page names
 helpers/                   PolicyCenterHelper, PageInteractionHelper, PageValidationHelper, GrayStoneHelper
 pages/                     BasePage + one class per PolicyCenter page
 plugins/htmlDashboard.js   HTML execution dashboard
-scripts/run.js             npm test runner (--tags/--headed/--env/--browser/--workers)
+scripts/run.js             npm test runner (--tags/--headed/--env/--browser/--data-api/--workers)
 selectors/                 one locator file per page + common builders
-support/                   GlobalData store, data generator, normalisers, dates, logger
+support/                   GlobalData store, auto-graystone-data API client, normalisers, dates, logger
 tests/*_test.js            scenarios (tags in titles)
 unit/*.test.js             node:test unit tests (no browser)
 output/                    dashboard + screenshots (git-ignored)

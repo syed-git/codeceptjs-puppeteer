@@ -1,5 +1,5 @@
 import Helper from '@codeceptjs/helper';
-import { fillMissing, generateAutoGraystoneData, TEMPLATE } from '../support/graystoneGenerator.js';
+import { fetchAutoGraystoneData, fillMissing, resolveEndpoint, TEMPLATE } from '../support/graystoneApi.js';
 import { GlobalData } from '../support/GlobalData.js';
 import { relativeDate } from '../support/dates.js';
 import { log } from '../support/logger.js';
@@ -10,12 +10,16 @@ import { log } from '../support/logger.js';
  *   const data = await I.getAutoGraystoneData({ numberOfDrivers: '2', Drivers: { Driver1: { firstName: 'Harry' } } });
  *   await I.getAutoGraystoneData();   // 1 insured, 1 driver, 1 vehicle, effective today
  *
+ * The data set is built by the auto-graystone-data REST service (github.com/syed-git/auto-graystone-data):
+ * the partial input is POSTed to `<dataApiUrl>/getAutoGraystoneData` and the completed data set comes back.
  * Only the fields PolicyCenter requires are generated when missing (names, DOB, gender, license
  * number, VIN, year/make/model/ownership, liability coverages). Optional fields - email, phone,
- * address, city, state, zip, licenseState, yearsLicensed, accidents, violations,
- * relationshipToInsured, usage, annualMileage, costNew, primaryDriver and the optional
- * coverages - are used only when you pass them. `isPrimaryInsured` is true for NamedInsured1 only.
- * See data/autoGraystoneTemplate.json for every supported key.
+ * address, city, state, zip, licenseState, yearsLicensed, accidents, violations, usage, annualMileage,
+ * costNew, primaryDriver and the optional coverages - are present only when you pass them.
+ * `isPrimaryInsured` is true for NamedInsured1 only. See data/autoGraystoneTemplate.json for every key.
+ *
+ * Helper config (codecept.conf.js): `{ require, environment }` - `environment.dataApiUrl` is the service URL
+ * (config/env/<ENV>.json, overridable with DATA_API_URL). `timeout` / `retries` tune the HTTP call.
  *
  * The result is stored in GlobalData so the flow pages use it automatically.
  */
@@ -25,17 +29,30 @@ class GrayStoneHelper extends Helper {
     this.overrides = {};
   }
 
+  /** Full endpoint URL the helper posts to (DATA_API_URL wins over the environment file). */
+  get dataApiUrl() {
+    return resolveEndpoint(process.env.DATA_API_URL || this.config.environment?.dataApiUrl || this.config.dataApiUrl);
+  }
+
   _before() {
     this.overrides = {};
   }
 
   /**
-   * Builds the AutoGraystone data set from a partial JSON object, stores it for the flows and returns it.
-   * Values set earlier in the test with setGraystoneValue()/setGraystoneRelativeDate() are applied too.
-   * Pass `{ store: false }` as the second argument to only generate without affecting the current test data.
+   * Calls the auto-graystone-data API with a partial JSON object, stores the returned data set for the
+   * flows and returns it. Values set earlier in the test with setGraystoneValue()/setGraystoneRelativeDate()
+   * are sent too. Pass `{ store: false }` as the second argument to only fetch without affecting the current
+   * test data. Throws GraystoneApiError when the service is unreachable or rejects the input (HTTP 400 details
+   * are included in the message).
    */
   async getAutoGraystoneData(input = {}, { store = true } = {}) {
-    const data = generateAutoGraystoneData(fillMissing(this.overrides, input));
+    const url = this.dataApiUrl;
+    const body = fillMissing(this.overrides, input);
+    log.info(`POST ${url}`);
+    const data = await fetchAutoGraystoneData(url, body, {
+      timeout: this.config.timeout,
+      retries: this.config.retries,
+    });
     if (store) GlobalData.setData(data);
     log.info(
       `AutoGraystone data ready: effective ${data.effectiveDate}, ${data.numberOfInsured} insured, ${data.numberOfDrivers} driver(s), ${data.numberOfVehicles} vehicle(s)`,

@@ -20,6 +20,10 @@ concurrency:
 
 env:
   NODE_VERSION: 22
+  # Test data comes from the auto-graystone-data service. The browser stages start it locally
+  # (cloned from DATA_API_REPO) instead of relying on the Render instance waking up in time.
+  DATA_API_REPO: https://github.com/syed-git/auto-graystone-data.git
+  DATA_API_URL: http://localhost:4000
 
 jobs:
   eslint:
@@ -50,8 +54,16 @@ jobs:
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
       - run: npx puppeteer browsers install chrome
-      # codeceptjs dry-run loads the config, helpers, plugins and every *_test.js without a browser,
-      # then the node:test unit tests cover the data generator, flows and dashboard renderer.
+      # node:test unit tests: data API client + GrayStoneHelper, flows and dashboard renderer (no browser)
+      - run: npm run test:unit
+      - name: Start auto-graystone-data
+        run: |
+          git clone --depth 1 "$DATA_API_REPO" "$RUNNER_TEMP/auto-graystone-data"
+          cd "$RUNNER_TEMP/auto-graystone-data"
+          npm ci --omit=dev
+          PORT=4000 nohup npm start > "$RUNNER_TEMP/auto-graystone-data.log" 2>&1 &
+          for i in $(seq 1 30); do curl -fs http://localhost:4000/health && break; sleep 1; done
+          curl -fs -X POST "$DATA_API_URL/getAutoGraystoneData"
       - run: npm run test:build
 
   smoke-tests:
@@ -68,6 +80,12 @@ jobs:
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true'
       - run: npx puppeteer browsers install chrome
-      # codeceptjs dry-run loads the config, helpers, plugins and every *_test.js without a browser,
-      # then the node:test unit tests cover the data generator, flows and dashboard renderer.
+      - name: Start auto-graystone-data
+        run: |
+          git clone --depth 1 "$DATA_API_REPO" "$RUNNER_TEMP/auto-graystone-data"
+          cd "$RUNNER_TEMP/auto-graystone-data"
+          npm ci --omit=dev
+          PORT=4000 nohup npm start > "$RUNNER_TEMP/auto-graystone-data.log" 2>&1 &
+          for i in $(seq 1 30); do curl -fs http://localhost:4000/health && break; sleep 1; done
+          curl -fs -X POST "$DATA_API_URL/getAutoGraystoneData"
       - run: npm run test:smoke
