@@ -23,8 +23,7 @@ env:
   # Test data comes from the auto-graystone-data service. The browser stages start it locally
   # (cloned from DATA_API_REPO) instead of relying on the Render instance waking up in time.
   DATA_API_REPO: https://github.com/syed-git/auto-graystone-data.git
-  # TODO: switch to master once syed-git/auto-graystone-data#1 is merged
-  DATA_API_REF: devin/1789937796-graystone-data-api
+  DATA_API_REF: master
   DATA_API_URL: http://localhost:4000
 
 jobs:
