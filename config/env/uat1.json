@@ -1,6 +1,6 @@
 {
   "baseUrl": "https://personal-auto-policy-center.onrender.com/",
-  "dataApiUrl": "https://auto-graystone-data.onrender.com",
+  "dataApiUrl": "https://auto-graystone-data.onrender.com/",
   "users": {
     "accountExecutive": {
       "username": "aexec",

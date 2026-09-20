@@ -55,7 +55,7 @@ class GrayStoneHelper extends Helper {
     });
     if (store) GlobalData.setData(data);
     log.info(
-      `AutoGraystone data ready: effective ${data.effectiveDate}, ${data.numberOfInsured} insured, ${data.numberOfDrivers} driver(s), ${data.numberOfVehicles} vehicle(s)`,
+      `AutoGraystone data ready:\n${JSON.stringify(data, null, 2)}`
     );
     return data;
   }
