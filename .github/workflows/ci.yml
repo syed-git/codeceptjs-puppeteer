@@ -23,6 +23,8 @@ env:
   # Test data comes from the auto-graystone-data service. The browser stages start it locally
   # (cloned from DATA_API_REPO) instead of relying on the Render instance waking up in time.
   DATA_API_REPO: https://github.com/syed-git/auto-graystone-data.git
+  # TODO: switch to master once syed-git/auto-graystone-data#1 is merged
+  DATA_API_REF: devin/1789937796-graystone-data-api
   DATA_API_URL: http://localhost:4000
 
 jobs:
@@ -58,7 +60,7 @@ jobs:
       - run: npm run test:unit
       - name: Start auto-graystone-data
         run: |
-          git clone --depth 1 "$DATA_API_REPO" "$RUNNER_TEMP/auto-graystone-data"
+          git clone --depth 1 --branch "$DATA_API_REF" "$DATA_API_REPO" "$RUNNER_TEMP/auto-graystone-data"
           cd "$RUNNER_TEMP/auto-graystone-data"
           npm ci --omit=dev
           PORT=4000 nohup npm start > "$RUNNER_TEMP/auto-graystone-data.log" 2>&1 &
@@ -82,7 +84,7 @@ jobs:
       - run: npx puppeteer browsers install chrome
       - name: Start auto-graystone-data
         run: |
-          git clone --depth 1 "$DATA_API_REPO" "$RUNNER_TEMP/auto-graystone-data"
+          git clone --depth 1 --branch "$DATA_API_REF" "$DATA_API_REPO" "$RUNNER_TEMP/auto-graystone-data"
           cd "$RUNNER_TEMP/auto-graystone-data"
           npm ci --omit=dev
           PORT=4000 nohup npm start > "$RUNNER_TEMP/auto-graystone-data.log" 2>&1 &
